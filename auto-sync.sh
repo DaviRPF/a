@@ -4,7 +4,7 @@
 # Uso: ./auto-sync.sh
 
 BRANCH="claude/sync-github-project-011CUqvdnRYxiugpuqjhsHxB"
-INTERVAL=10  # segundos entre verificações
+INTERVAL=2  # segundos entre verificações
 
 echo "🔄 Iniciando sincronização automática..."
 echo "📌 Branch: $BRANCH"

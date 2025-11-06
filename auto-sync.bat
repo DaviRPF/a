@@ -3,7 +3,7 @@ REM Script de sincronização automática para Windows
 REM Uso: auto-sync.bat
 
 set BRANCH=claude/sync-github-project-011CUqvdnRYxiugpuqjhsHxB
-set INTERVAL=10
+set INTERVAL=2
 
 echo Iniciando sincronizacao automatica...
 echo Branch: %BRANCH%
