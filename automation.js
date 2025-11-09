@@ -192,18 +192,31 @@ export async function searchGoogleForInstagram(businessType, city) {
         console.log('Buscando no Google:', searchQuery);
         await page.goto(googleUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        // Verificar se há captcha e resolver automaticamente
-        const { captchas, solutions, solved, error } = await page.solveRecaptchas();
+        // Verificar se há captcha e tentar resolver automaticamente
+        if (process.env.TWOCAPTCHA_TOKEN && page.solveRecaptchas) {
+            try {
+                const { captchas, solutions, solved, error } = await page.solveRecaptchas();
 
-        if (solved && solved.length > 0) {
-            console.log(`✅ Captcha resolvido automaticamente! ${solved.length} captcha(s)`);
-            // Aguardar a página recarregar após resolver o captcha
-            await delay(3000);
-        }
+                if (solved && solved.length > 0) {
+                    console.log(`✅ Captcha resolvido automaticamente! ${solved.length} captcha(s)`);
+                    // Aguardar a página recarregar após resolver o captcha
+                    await delay(3000);
+                }
 
-        if (error) {
-            console.error('Erro ao resolver captcha:', error);
-            // Se não conseguir resolver, continua mesmo assim
+                if (error) {
+                    console.error('Erro ao resolver captcha:', error);
+                }
+            } catch (captchaError) {
+                console.log('⚠️ Não foi possível resolver captcha automaticamente');
+                console.log('Configure TWOCAPTCHA_TOKEN no .env para resolução automática');
+                // Aguardar um pouco para usuário resolver manualmente
+                console.log('Aguardando 30 segundos para resolução manual do captcha...');
+                await delay(30000);
+            }
+        } else {
+            console.log('⚠️ Plugin de captcha não configurado ou token não fornecido');
+            console.log('Aguardando 30 segundos para resolução manual do captcha...');
+            await delay(30000);
         }
 
         // Extrair links do Instagram dos resultados
