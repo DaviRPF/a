@@ -121,43 +121,122 @@ export async function saveSession() {
     }
 }
 
-// Função para buscar no Google
+// Função para buscar diretamente no Instagram
 export async function searchGoogleForInstagram(businessType, city) {
     try {
         if (!page) {
             const browser = await initBrowser();
             page = await browser.newPage();
+
+            // Configurar user-agent real
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            await page.setViewport({ width: 1280, height: 720 });
         }
 
-        const searchQuery = `${businessType} ${city} instagram`;
-        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+        // Carregar cookies se existirem
+        if (fs.existsSync(COOKIES_FILE)) {
+            const cookies = JSON.parse(fs.readFileSync(COOKIES_FILE, 'utf8'));
+            await page.setCookie(...cookies);
+        }
 
-        await page.goto(googleUrl, { waitUntil: 'networkidle2' });
+        // Buscar diretamente no Instagram usando a busca nativa
+        const searchQuery = `${businessType} ${city}`;
+        const instagramSearchUrl = `https://www.instagram.com/explore/tags/${encodeURIComponent(businessType.toLowerCase().replace(/\s+/g, ''))}/`;
 
-        // Extrair links do Instagram dos resultados
-        const instagramLinks = await page.evaluate(() => {
+        console.log('Buscando no Instagram:', searchQuery);
+
+        // Ir para a página de busca do Instagram
+        await page.goto('https://www.instagram.com/explore/search/', { waitUntil: 'networkidle2', timeout: 30000 });
+        await delay(3000);
+
+        // Tentar usar a barra de busca
+        const searchInput = await page.$('input[placeholder*="Pesquis"], input[placeholder*="Search"], input[aria-label*="Search"]');
+
+        if (searchInput) {
+            await searchInput.click();
+            await delay(1000);
+            await searchInput.type(searchQuery, { delay: 100 });
+            await delay(3000);
+
+            // Extrair resultados da busca
+            const instagramLinks = await page.evaluate(() => {
+                const links = [];
+                const anchors = document.querySelectorAll('a[href*="/"]');
+
+                anchors.forEach(anchor => {
+                    const href = anchor.href;
+                    const match = href.match(/instagram\.com\/([^\/\?#]+)/);
+                    if (match && match[1] &&
+                        !['explore', 'p', 'reel', 'reels', 'stories', 'accounts', 'direct', 'tv'].includes(match[1]) &&
+                        !match[1].startsWith('_')) {
+                        const username = match[1];
+                        // Verificar se parece ser um estabelecimento comercial (sem números demais)
+                        if (!links.find(l => l.username === username) && !/^\d+$/.test(username)) {
+                            links.push({
+                                username: username,
+                                url: `https://www.instagram.com/${username}/`
+                            });
+                        }
+                    }
+                });
+
+                return links;
+            });
+
+            if (instagramLinks.length > 0) {
+                console.log(`Encontrados ${instagramLinks.length} perfis`);
+                return instagramLinks.slice(0, 15);
+            }
+        }
+
+        // Estratégia alternativa: buscar pela hashtag do tipo de estabelecimento
+        console.log('Tentando busca por hashtag...');
+        const hashtag = businessType.toLowerCase().replace(/\s+/g, '');
+        await page.goto(`https://www.instagram.com/explore/tags/${hashtag}/`, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+        });
+        await delay(3000);
+
+        // Rolar a página para carregar mais posts
+        await page.evaluate(() => {
+            window.scrollBy(0, 1000);
+        });
+        await delay(2000);
+
+        // Extrair perfis dos posts
+        const profileLinks = await page.evaluate((cityName) => {
             const links = [];
-            const anchors = document.querySelectorAll('a[href*="instagram.com"]');
+            const postLinks = document.querySelectorAll('a[href*="/p/"]');
 
-            anchors.forEach(anchor => {
-                const href = anchor.href;
-                // Filtrar apenas perfis do Instagram
-                const match = href.match(/instagram\.com\/([^\/\?]+)/);
-                if (match && match[1] && !['p', 'reel', 'stories', 'explore'].includes(match[1])) {
-                    const username = match[1];
-                    if (!links.find(l => l.username === username)) {
-                        links.push({
-                            username: username,
-                            url: `https://www.instagram.com/${username}/`
-                        });
+            postLinks.forEach(link => {
+                // Tentar encontrar o link do perfil associado ao post
+                const parent = link.closest('article');
+                if (parent) {
+                    const profileLink = parent.querySelector('a[href]:not([href*="/p/"]):not([href*="/reel/"])');
+                    if (profileLink) {
+                        const href = profileLink.href;
+                        const match = href.match(/instagram\.com\/([^\/\?#]+)/);
+                        if (match && match[1]) {
+                            const username = match[1];
+                            if (!links.find(l => l.username === username) &&
+                                !['explore', 'p', 'reel', 'stories'].includes(username)) {
+                                links.push({
+                                    username: username,
+                                    url: `https://www.instagram.com/${username}/`
+                                });
+                            }
+                        }
                     }
                 }
             });
 
             return links;
-        });
+        }, city);
 
-        return instagramLinks.slice(0, 10); // Limitar a 10 resultados
+        console.log(`Encontrados ${profileLinks.length} perfis por hashtag`);
+        return profileLinks.slice(0, 15);
+
     } catch (error) {
         console.error('Erro na busca:', error);
         return [];
