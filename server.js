@@ -17,6 +17,7 @@ const PORT = 3000;
 const DATA_FILE = path.join(__dirname, 'prospects.json');
 const FIELDS_CONFIG_FILE = path.join(__dirname, 'fields-config.json');
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
+const BUSINESS_TYPES_FILE = path.join(__dirname, 'business-types.json');
 
 // Inicializar Gemini AI
 let genAI = null;
@@ -30,8 +31,21 @@ app.use(bodyParser.json());
 // Servir arquivos estáticos do build do React
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// Tipos de estabelecimento padrão
+const DEFAULT_BUSINESS_TYPES = [
+    'Restaurante',
+    'Pizzaria',
+    'Cafeteria',
+    'Padaria',
+    'Lanchonete',
+    'Bar',
+    'Hamburgueria',
+    'Sorveteria'
+];
+
 // Configuração inicial de campos
 const DEFAULT_FIELDS = [
+    { id: 'tipoEstabelecimento', label: 'Tipo de Estabelecimento', type: 'select', required: true, icon: '🏢', options: DEFAULT_BUSINESS_TYPES },
     { id: 'nome', label: 'Nome do Estabelecimento', type: 'text', required: true, icon: '🏪' },
     { id: 'telefone', label: 'Telefone', type: 'tel', required: true, icon: '📞' },
     { id: 'instagram', label: 'Instagram', type: 'text', required: false, icon: '📱' },
@@ -57,6 +71,11 @@ if (!fs.existsSync(FIELDS_CONFIG_FILE)) {
 // Inicializar arquivo de settings se não existir
 if (!fs.existsSync(SETTINGS_FILE)) {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2));
+}
+
+// Inicializar arquivo de tipos de estabelecimento se não existir
+if (!fs.existsSync(BUSINESS_TYPES_FILE)) {
+    fs.writeFileSync(BUSINESS_TYPES_FILE, JSON.stringify(DEFAULT_BUSINESS_TYPES, null, 2));
 }
 
 // Função para ler prospects
@@ -90,6 +109,17 @@ function readSettings() {
 // Função para salvar settings
 function saveSettings(settings) {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+}
+
+// Função para ler tipos de estabelecimento
+function readBusinessTypes() {
+    const data = fs.readFileSync(BUSINESS_TYPES_FILE, 'utf8');
+    return JSON.parse(data);
+}
+
+// Função para salvar tipos de estabelecimento
+function saveBusinessTypes(types) {
+    fs.writeFileSync(BUSINESS_TYPES_FILE, JSON.stringify(types, null, 2));
 }
 
 // GET - Listar todos os prospects
@@ -264,6 +294,52 @@ app.post('/api/settings', (req, res) => {
         res.json(newSettings);
     } catch (error) {
         res.status(500).json({ error: 'Erro ao salvar configurações' });
+    }
+});
+
+// ============= ROTAS DE TIPOS DE ESTABELECIMENTO =============
+
+// GET - Listar tipos de estabelecimento
+app.get('/api/business-types', (req, res) => {
+    try {
+        const types = readBusinessTypes();
+        res.json(types);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao ler tipos de estabelecimento' });
+    }
+});
+
+// POST - Adicionar novo tipo de estabelecimento
+app.post('/api/business-types', (req, res) => {
+    try {
+        const { type } = req.body;
+
+        if (!type || typeof type !== 'string' || type.trim() === '') {
+            return res.status(400).json({ error: 'Tipo inválido' });
+        }
+
+        const types = readBusinessTypes();
+        const normalizedType = type.trim();
+
+        // Verificar se já existe (case-insensitive)
+        if (types.some(t => t.toLowerCase() === normalizedType.toLowerCase())) {
+            return res.status(400).json({ error: 'Tipo já existe' });
+        }
+
+        types.push(normalizedType);
+        saveBusinessTypes(types);
+
+        // Atualizar as opções do campo tipoEstabelecimento
+        const fields = readFieldsConfig();
+        const typeField = fields.find(f => f.id === 'tipoEstabelecimento');
+        if (typeField) {
+            typeField.options = types;
+            saveFieldsConfig(fields);
+        }
+
+        res.status(201).json({ type: normalizedType, allTypes: types });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao adicionar tipo de estabelecimento' });
     }
 });
 

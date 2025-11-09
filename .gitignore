@@ -12,6 +12,7 @@ prospects.json
 fields-config.json
 instagram-cookies.json
 settings.json
+business-types.json
 
 # Puppeteer
 .local-chromium/

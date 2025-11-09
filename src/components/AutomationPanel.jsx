@@ -4,7 +4,10 @@ import '../styles/AutomationPanel.css'
 
 const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [businessTypes, setBusinessTypes] = useState([])
   const [businessType, setBusinessType] = useState('')
+  const [customBusinessType, setCustomBusinessType] = useState('')
+  const [showCustomInput, setShowCustomInput] = useState(false)
   const [city, setCity] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
@@ -12,10 +15,11 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   const [foundProspects, setFoundProspects] = useState([])
   const [eventSource, setEventSource] = useState(null)
 
-  // Verificar status de login ao abrir
+  // Verificar status de login e carregar tipos ao abrir
   useEffect(() => {
     if (isOpen) {
       checkLoginStatus()
+      loadBusinessTypes()
     }
 
     return () => {
@@ -31,6 +35,38 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
       setIsLoggedIn(response.data.loggedIn)
     } catch (error) {
       console.error('Erro ao verificar login:', error)
+    }
+  }
+
+  const loadBusinessTypes = async () => {
+    try {
+      const response = await axios.get('/api/business-types')
+      setBusinessTypes(response.data)
+    } catch (error) {
+      console.error('Erro ao carregar tipos:', error)
+    }
+  }
+
+  const handleBusinessTypeChange = (e) => {
+    const value = e.target.value
+    if (value === '__custom__') {
+      setShowCustomInput(true)
+      setBusinessType('')
+    } else {
+      setShowCustomInput(false)
+      setBusinessType(value)
+      setCustomBusinessType('')
+    }
+  }
+
+  const createNewBusinessType = async (type) => {
+    try {
+      const response = await axios.post('/api/business-types', { type })
+      setBusinessTypes(response.data.allTypes)
+      return true
+    } catch (error) {
+      console.error('Erro ao criar tipo:', error)
+      return false
     }
   }
 
@@ -53,9 +89,39 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   }
 
   const handleSearch = async () => {
-    if (!businessType || !city) {
+    // Determinar qual tipo usar
+    const typeToUse = showCustomInput ? customBusinessType : businessType
+
+    if (!typeToUse || !city) {
       alert('Preencha o tipo de estabelecimento e a cidade')
       return
+    }
+
+    // Se for customizado, verificar se existe
+    if (showCustomInput) {
+      const typeExists = businessTypes.some(
+        t => t.toLowerCase() === customBusinessType.toLowerCase()
+      )
+
+      if (!typeExists) {
+        const confirmed = window.confirm(
+          `O tipo "${customBusinessType}" não existe ainda.\n\nDeseja criar este novo tipo de estabelecimento?`
+        )
+
+        if (!confirmed) {
+          return
+        }
+
+        // Criar novo tipo
+        const created = await createNewBusinessType(customBusinessType)
+        if (!created) {
+          alert('Erro ao criar novo tipo de estabelecimento')
+          return
+        }
+
+        setStatusMessage(`Tipo "${customBusinessType}" criado com sucesso!`)
+        setTimeout(() => setStatusMessage(''), 2000)
+      }
     }
 
     setIsSearching(true)
@@ -65,7 +131,7 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
 
     // Conectar ao SSE
     const es = new EventSource(
-      `/api/automation/search?businessType=${encodeURIComponent(businessType)}&city=${encodeURIComponent(city)}`
+      `/api/automation/search?businessType=${encodeURIComponent(typeToUse)}&city=${encodeURIComponent(city)}`
     )
 
     setEventSource(es)
@@ -185,14 +251,33 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
             <div className="search-form">
               <div className="form-group">
                 <label>Tipo de Estabelecimento</label>
-                <input
-                  type="text"
-                  value={businessType}
-                  onChange={(e) => setBusinessType(e.target.value)}
-                  placeholder="Ex: Pizzaria, Restaurante, Cafeteria"
+                <select
+                  value={showCustomInput ? '__custom__' : businessType}
+                  onChange={handleBusinessTypeChange}
                   disabled={isSearching}
-                />
+                  className="business-type-select"
+                >
+                  <option value="">Selecione um tipo...</option>
+                  {businessTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                  <option value="__custom__">✏️ Outro...</option>
+                </select>
               </div>
+
+              {showCustomInput && (
+                <div className="form-group">
+                  <label>Digite o novo tipo</label>
+                  <input
+                    type="text"
+                    value={customBusinessType}
+                    onChange={(e) => setCustomBusinessType(e.target.value)}
+                    placeholder="Ex: Pastelaria, Açaiteria..."
+                    disabled={isSearching}
+                    autoFocus
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label>Cidade</label>
                 <input
