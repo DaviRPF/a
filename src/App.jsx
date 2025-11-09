@@ -4,6 +4,7 @@ import ProspectList from './components/ProspectList'
 import StatusFilter from './components/StatusFilter'
 import FieldsManager from './components/FieldsManager'
 import AutomationPanel from './components/AutomationPanel'
+import SettingsPanel from './components/SettingsPanel'
 import Toast from './components/Toast'
 import {
   fetchProspects, createProspect, updateProspect, deleteProspect,
@@ -20,6 +21,7 @@ function App() {
   const [toast, setToast] = useState(null)
   const [showFieldsManager, setShowFieldsManager] = useState(false)
   const [showAutomation, setShowAutomation] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   // Carregar prospects e campos ao montar o componente
   useEffect(() => {
@@ -160,6 +162,12 @@ function App() {
           >
             ⚙️ {showFieldsManager ? 'Ocultar' : 'Gerenciar'} Campos
           </button>
+          <button
+            className="btn-config"
+            onClick={() => setShowSettings(true)}
+          >
+            🔧 Configurações
+          </button>
         </div>
       </header>
 
@@ -204,6 +212,11 @@ function App() {
         onClose={() => setShowAutomation(false)}
         fields={fields}
         onApproveProspects={handleApproveProspects}
+      />
+
+      <SettingsPanel
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
 
       {toast && <Toast message={toast.message} type={toast.type} />}

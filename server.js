@@ -16,6 +16,7 @@ const app = express();
 const PORT = 3000;
 const DATA_FILE = path.join(__dirname, 'prospects.json');
 const FIELDS_CONFIG_FILE = path.join(__dirname, 'fields-config.json');
+const SETTINGS_FILE = path.join(__dirname, 'settings.json');
 
 // Inicializar Gemini AI
 let genAI = null;
@@ -38,6 +39,11 @@ const DEFAULT_FIELDS = [
     { id: 'presencaRedeSocial', label: 'Tem Presença na Rede Social?', type: 'select', required: true, icon: '👥', options: ['Sim', 'Não'] }
 ];
 
+// Configuração padrão de settings
+const DEFAULT_SETTINGS = {
+    geminiModel: 'gemini-2.5-flash'
+};
+
 // Inicializar arquivo de dados se não existir
 if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2));
@@ -46,6 +52,11 @@ if (!fs.existsSync(DATA_FILE)) {
 // Inicializar arquivo de configuração de campos se não existir
 if (!fs.existsSync(FIELDS_CONFIG_FILE)) {
     fs.writeFileSync(FIELDS_CONFIG_FILE, JSON.stringify(DEFAULT_FIELDS, null, 2));
+}
+
+// Inicializar arquivo de settings se não existir
+if (!fs.existsSync(SETTINGS_FILE)) {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2));
 }
 
 // Função para ler prospects
@@ -68,6 +79,17 @@ function readFieldsConfig() {
 // Função para salvar configuração de campos
 function saveFieldsConfig(fields) {
     fs.writeFileSync(FIELDS_CONFIG_FILE, JSON.stringify(fields, null, 2));
+}
+
+// Função para ler settings
+function readSettings() {
+    const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+    return JSON.parse(data);
+}
+
+// Função para salvar settings
+function saveSettings(settings) {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 }
 
 // GET - Listar todos os prospects
@@ -218,6 +240,33 @@ app.delete('/api/fields/:id', (req, res) => {
     }
 });
 
+// ============= ROTAS DE CONFIGURAÇÕES =============
+
+// GET - Obter configurações
+app.get('/api/settings', (req, res) => {
+    try {
+        const settings = readSettings();
+        res.json(settings);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao ler configurações' });
+    }
+});
+
+// POST - Salvar configurações
+app.post('/api/settings', (req, res) => {
+    try {
+        const currentSettings = readSettings();
+        const newSettings = {
+            ...currentSettings,
+            ...req.body
+        };
+        saveSettings(newSettings);
+        res.json(newSettings);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao salvar configurações' });
+    }
+});
+
 // ============= ROTA DE IA - PREENCHIMENTO AUTOMÁTICO =============
 
 // POST - Processar texto com IA e extrair informações
@@ -267,7 +316,8 @@ Formato de resposta (JSON válido):
   "campo2": "valor extraído"
 }`;
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const settings = readSettings();
+        const model = genAI.getGenerativeModel({ model: settings.geminiModel });
         const result = await model.generateContent(prompt);
         const response = await result.response;
         let aiText = response.text();
@@ -382,7 +432,8 @@ IMPORTANTE:
 
 JSON:`;
 
-                        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+                        const settings = readSettings();
+                        const model = genAI.getGenerativeModel({ model: settings.geminiModel });
                         const result = await model.generateContent(prompt);
                         const response = await result.response;
                         let aiText = response.text();
