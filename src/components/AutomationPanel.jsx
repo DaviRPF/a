@@ -76,12 +76,27 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
       const response = await axios.post('/api/automation/login')
 
       if (response.data.success) {
-        setStatusMessage('Faça login no navegador que abriu e depois feche esta mensagem.')
-        // Verificar status após alguns segundos
+        setStatusMessage(response.data.message)
+      }
+    } catch (error) {
+      setStatusMessage(`Erro: ${error.message}`)
+    }
+  }
+
+  const handleSaveSession = async () => {
+    try {
+      setStatusMessage('Salvando sessão...')
+      const response = await axios.post('/api/automation/save-session')
+
+      if (response.data.success) {
+        setStatusMessage(response.data.message)
+        setIsLoggedIn(true)
+        // Limpar mensagem após 3 segundos
         setTimeout(() => {
-          checkLoginStatus()
           setStatusMessage('')
-        }, 5000)
+        }, 3000)
+      } else {
+        setStatusMessage(response.data.message)
       }
     } catch (error) {
       setStatusMessage(`Erro: ${error.message}`)
@@ -235,14 +250,21 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
                 {isLoggedIn ? 'Instagram conectado' : 'Instagram desconectado'}
               </span>
             </div>
-            {!isLoggedIn && (
-              <button className="btn-login" onClick={handleLogin}>
-                🔓 Fazer Login no Instagram
+            <div className="login-buttons">
+              {!isLoggedIn && (
+                <button className="btn-login" onClick={handleLogin}>
+                  🔓 Fazer Login no Instagram
+                </button>
+              )}
+              {!isLoggedIn && (
+                <button className="btn-save-session" onClick={handleSaveSession}>
+                  💾 Salvar Sessão
+                </button>
+              )}
+              <button className="btn-close-browser" onClick={handleCloseBrowser}>
+                🚫 Fechar Navegador
               </button>
-            )}
-            <button className="btn-close-browser" onClick={handleCloseBrowser}>
-              🚫 Fechar Navegador
-            </button>
+            </div>
           </div>
 
           {/* Formulário de Busca */}

@@ -82,9 +82,41 @@ export async function loginInstagram(username, password) {
             return { success: true, message: 'Login realizado com sucesso' };
         }
 
-        return { success: false, message: 'Aguardando login manual' };
+        // Se não tiver credenciais, é login manual
+        // Retornar sucesso e deixar navegador aberto para login manual
+        return { success: true, message: 'Navegador aberto para login manual. Faça login e depois clique em "Salvar Sessão".' };
     } catch (error) {
         console.error('Erro no login:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+// Função para salvar sessão atual (após login manual)
+export async function saveSession() {
+    try {
+        if (!page) {
+            return { success: false, message: 'Nenhuma página ativa. Faça login primeiro.' };
+        }
+
+        // Verificar se está logado
+        await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle2' });
+        await delay(2000);
+
+        const isLoggedIn = await page.evaluate(() => {
+            return !document.querySelector('input[name="username"]');
+        });
+
+        if (!isLoggedIn) {
+            return { success: false, message: 'Você ainda não está logado. Complete o login primeiro.' };
+        }
+
+        // Salvar cookies
+        const cookies = await page.cookies();
+        fs.writeFileSync(COOKIES_FILE, JSON.stringify(cookies, null, 2));
+
+        return { success: true, message: 'Sessão salva com sucesso!' };
+    } catch (error) {
+        console.error('Erro ao salvar sessão:', error);
         return { success: false, message: error.message };
     }
 }

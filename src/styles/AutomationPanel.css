@@ -85,7 +85,14 @@
   font-size: 1.4rem;
 }
 
+.login-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .btn-login,
+.btn-save-session,
 .btn-close-browser {
   background: var(--gradient);
   color: white;
@@ -95,14 +102,21 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-right: 10px;
-  margin-top: 10px;
+}
+
+.btn-save-session {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
 .btn-login:hover,
+.btn-save-session:hover,
 .btn-close-browser:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px var(--shadow-colored);
+}
+
+.btn-save-session:hover {
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
 }
 
 .btn-close-browser {

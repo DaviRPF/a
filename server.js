@@ -440,6 +440,16 @@ app.post('/api/automation/login', async (req, res) => {
     }
 });
 
+// Salvar sessão após login manual
+app.post('/api/automation/save-session', async (req, res) => {
+    try {
+        const result = await automation.saveSession();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Buscar prospects automaticamente com SSE
 app.get('/api/automation/search', async (req, res) => {
     const { businessType, city } = req.query;
