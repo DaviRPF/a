@@ -218,19 +218,14 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
       return
     }
 
-    // Enviar prospects aprovados para serem adicionados
-    onApproveProspects(approvedProspects.map(p => p.data))
+    // Enviar prospects aprovados para aperfeiçoamento (objeto completo com id, data, etc)
+    onApproveProspects(approvedProspects)
 
-    // Limpar e fechar
+    // Limpar campos mas não fechar - o painel será fechado pelo App.jsx
     setFoundProspects([])
     setBusinessType('')
     setCity('')
-    setStatusMessage(`${approvedProspects.length} prospects adicionados com sucesso!`)
-
-    setTimeout(() => {
-      setStatusMessage('')
-      onClose()
-    }, 2000)
+    setStatusMessage('')
   }
 
   const handleCloseBrowser = async () => {

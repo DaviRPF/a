@@ -601,6 +601,85 @@ JSON:`;
     }
 });
 
+// Aperfeiçoar prospects com dados empresariais
+let enhancementClients = [];
+
+app.post('/api/automation/enhance', async (req, res) => {
+    const { prospects } = req.body;
+
+    if (!prospects || prospects.length === 0) {
+        return res.status(400).json({ error: 'Nenhum prospect fornecido' });
+    }
+
+    res.json({ success: true, message: 'Aperfeiçoamento iniciado' });
+
+    // Processar em background
+    (async () => {
+        try {
+            const sendToAllClients = (data) => {
+                enhancementClients.forEach(client => {
+                    client.write(`data: ${JSON.stringify(data)}\n\n`);
+                });
+            };
+
+            for (let i = 0; i < prospects.length; i++) {
+                const prospect = prospects[i];
+
+                sendToAllClients({
+                    type: 'progress',
+                    current: i + 1,
+                    total: prospects.length,
+                    message: `Aperfeiçoando ${prospect.data.nome || 'prospect'}...`
+                });
+
+                try {
+                    // Aperfeiçoar dados
+                    const enhancement = await automation.enhanceProspectData(prospect);
+
+                    sendToAllClients({
+                        type: 'prospect_enhanced',
+                        tempId: prospect.tempId,
+                        enhancement: enhancement
+                    });
+                } catch (error) {
+                    console.error(`Erro ao aperfeiçoar prospect ${i}:`, error);
+                    sendToAllClients({
+                        type: 'error',
+                        message: `Erro ao aperfeiçoar: ${error.message}`,
+                        tempId: prospect.tempId
+                    });
+                }
+            }
+
+            sendToAllClients({
+                type: 'complete',
+                message: 'Aperfeiçoamento concluído!'
+            });
+        } catch (error) {
+            console.error('Erro no aperfeiçoamento:', error);
+            enhancementClients.forEach(client => {
+                client.write(`data: ${JSON.stringify({
+                    type: 'error',
+                    message: error.message
+                })}\n\n`);
+            });
+        }
+    })();
+});
+
+// SSE para acompanhar progresso do aperfeiçoamento
+app.get('/api/automation/enhance-progress', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    enhancementClients.push(res);
+
+    req.on('close', () => {
+        enhancementClients = enhancementClients.filter(client => client !== res);
+    });
+});
+
 // Fechar navegador
 app.post('/api/automation/close', async (req, res) => {
     try {

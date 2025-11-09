@@ -519,3 +519,218 @@ export async function checkLoginStatus() {
         return { loggedIn: false };
     }
 }
+
+// ============= FUNÇÕES DE APERFEIÇOAMENTO DE DADOS =============
+
+// Função para buscar CNPJ na Econodata
+export async function searchEconodata(companyName, city) {
+    try {
+        const browser = await initBrowser();
+
+        if (!page || page.isClosed()) {
+            page = await browser.newPage();
+        }
+
+        const searchQuery = `${companyName} ${city}`;
+        const url = `https://www.econodata.com.br/busca?q=${encodeURIComponent(searchQuery)}`;
+
+        console.log(`🔍 Buscando na Econodata: ${searchQuery}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await delay(2000);
+
+        // Extrair informações da primeira empresa encontrada
+        const data = await page.evaluate(() => {
+            // Procurar pelo primeiro resultado
+            const firstResult = document.querySelector('.empresa-item, .result-item, [class*="company"]');
+
+            if (!firstResult) return null;
+
+            // Tentar encontrar CNPJ
+            const cnpjElement = firstResult.querySelector('[class*="cnpj"], .cnpj');
+            const cnpj = cnpjElement?.textContent?.trim().match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/)?.[0];
+
+            if (!cnpj) return null;
+
+            // Link para página detalhada
+            const link = firstResult.querySelector('a')?.href;
+
+            return { cnpj, detailUrl: link };
+        });
+
+        if (!data || !data.cnpj) {
+            console.log('⚠️ CNPJ não encontrado na Econodata');
+            return null;
+        }
+
+        console.log(`✅ CNPJ encontrado na Econodata: ${data.cnpj}`);
+
+        // Se tiver URL detalhada, buscar mais informações
+        if (data.detailUrl) {
+            await page.goto(data.detailUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await delay(2000);
+
+            const details = await page.evaluate(() => {
+                const extractText = (selector) => {
+                    const el = document.querySelector(selector);
+                    return el?.textContent?.trim() || '';
+                };
+
+                return {
+                    capitalSocial: extractText('[class*="capital"], .capital-social'),
+                    porte: extractText('[class*="porte"], .porte'),
+                    socios: extractText('[class*="socios"], .socios, [class*="admin"]')
+                };
+            });
+
+            return { ...data, ...details };
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Erro ao buscar na Econodata:', error.message);
+        return null;
+    }
+}
+
+// Função para buscar CNPJ no CNPJBiz
+export async function searchCNPJBiz(cnpj) {
+    try {
+        const browser = await initBrowser();
+
+        if (!page || page.isClosed()) {
+            page = await browser.newPage();
+        }
+
+        // Limpar CNPJ (apenas números)
+        const cleanCNPJ = cnpj.replace(/\D/g, '');
+        const url = `https://www.cnpj.biz/${cleanCNPJ}`;
+
+        console.log(`🔍 Buscando no CNPJBiz: ${cnpj}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await delay(2000);
+
+        const data = await page.evaluate(() => {
+            const extractText = (label) => {
+                const labelEl = Array.from(document.querySelectorAll('strong, .label, dt')).find(
+                    el => el.textContent.toLowerCase().includes(label.toLowerCase())
+                );
+                if (!labelEl) return '';
+
+                // Próximo elemento ou texto seguinte
+                const valueEl = labelEl.nextElementSibling || labelEl.parentElement?.querySelector('dd, .value');
+                return valueEl?.textContent?.trim() || '';
+            };
+
+            return {
+                capitalSocial: extractText('capital social'),
+                porte: extractText('porte') || extractText('natureza jurídica'),
+                socios: extractText('sócios') || extractText('quadro societário') || extractText('administradores')
+            };
+        });
+
+        console.log('✅ Dados encontrados no CNPJBiz');
+        return data;
+    } catch (error) {
+        console.error('Erro ao buscar no CNPJBiz:', error.message);
+        return null;
+    }
+}
+
+// Função para verificar se tem Google Meu Negócio
+export async function checkGoogleMyBusiness(companyName, city) {
+    try {
+        const browser = await initBrowser();
+
+        if (!page || page.isClosed()) {
+            page = await browser.newPage();
+        }
+
+        const searchQuery = `${companyName} ${city}`;
+        const url = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+
+        console.log(`🔍 Verificando Google Meu Negócio: ${searchQuery}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await delay(3000);
+
+        // Verificar se aparece card do Google Meu Negócio
+        const hasGMB = await page.evaluate(() => {
+            // Procurar pelo Knowledge Panel (card lateral) do Google
+            const knowledgePanel = document.querySelector('[data-attrid="kc:/local:one box"], [class*="knowledge"], .kp-wholepage, [data-md]');
+
+            if (!knowledgePanel) return false;
+
+            // Verificar se tem elementos típicos de GMB
+            const hasAddress = knowledgePanel.querySelector('[data-attrid*="address"], [class*="address"]');
+            const hasPhone = knowledgePanel.querySelector('[data-attrid*="phone"], [class*="phone"]');
+            const hasHours = knowledgePanel.querySelector('[data-attrid*="hours"], [class*="hours"]');
+            const hasRating = knowledgePanel.querySelector('[class*="review"], [class*="rating"]');
+
+            return !!(hasAddress || hasPhone || hasHours || hasRating);
+        });
+
+        if (hasGMB) {
+            console.log('✅ Tem página no Google Meu Negócio');
+            return { hasGMB: true, gmbUrl: url };
+        } else {
+            console.log('⚠️ Não encontrou Google Meu Negócio');
+            return { hasGMB: false };
+        }
+    } catch (error) {
+        console.error('Erro ao verificar Google Meu Negócio:', error.message);
+        return { hasGMB: false };
+    }
+}
+
+// Função principal para aperfeiçoar dados de um prospect
+export async function enhanceProspectData(prospect) {
+    console.log(`\n🌟 Aperfeiçoando dados de: ${prospect.data.nome || 'prospect'}`);
+
+    const enhancement = {};
+    let cnpjFound = null;
+
+    // 1. Tentar encontrar CNPJ na Econodata
+    const econodataData = await searchEconodata(
+        prospect.data.nome || '',
+        prospect.data.cidade || ''
+    );
+
+    if (econodataData && econodataData.cnpj) {
+        cnpjFound = econodataData.cnpj;
+        enhancement.cnpj = cnpjFound;
+        enhancement.capitalSocial = econodataData.capitalSocial || '';
+        enhancement.porte = econodataData.porte || '';
+        enhancement.socios = econodataData.socios || '';
+        enhancement.fonte = 'Econodata';
+    } else {
+        // 2. Se não achou na Econodata e tem CNPJ no prospect, buscar no CNPJBiz
+        if (prospect.data.cnpj) {
+            const cnpjBizData = await searchCNPJBiz(prospect.data.cnpj);
+
+            if (cnpjBizData) {
+                enhancement.cnpj = prospect.data.cnpj;
+                enhancement.capitalSocial = cnpjBizData.capitalSocial || '';
+                enhancement.porte = cnpjBizData.porte || '';
+                enhancement.socios = cnpjBizData.socios || '';
+                enhancement.fonte = 'CNPJBiz';
+            }
+        } else {
+            enhancement.statusCNPJ = 'CNPJ não encontrado ou empresa não possui CNPJ';
+        }
+    }
+
+    // 3. Verificar Google Meu Negócio
+    const gmbData = await checkGoogleMyBusiness(
+        prospect.data.nome || '',
+        prospect.data.cidade || ''
+    );
+
+    enhancement.googleMeuNegocio = gmbData.hasGMB ? 'Sim' : 'Não';
+    if (gmbData.gmbUrl) {
+        enhancement.googleMeuNegocioUrl = gmbData.gmbUrl;
+    }
+
+    console.log('✅ Aperfeiçoamento concluído');
+    console.log('📊 Dados coletados:', enhancement);
+
+    return enhancement;
+}

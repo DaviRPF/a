@@ -4,6 +4,7 @@ import ProspectList from './components/ProspectList'
 import StatusFilter from './components/StatusFilter'
 import FieldsManager from './components/FieldsManager'
 import AutomationPanel from './components/AutomationPanel'
+import EnhancementPanel from './components/EnhancementPanel'
 import SettingsPanel from './components/SettingsPanel'
 import Toast from './components/Toast'
 import {
@@ -21,6 +22,8 @@ function App() {
   const [toast, setToast] = useState(null)
   const [showFieldsManager, setShowFieldsManager] = useState(false)
   const [showAutomation, setShowAutomation] = useState(false)
+  const [showEnhancement, setShowEnhancement] = useState(false)
+  const [approvedProspects, setApprovedProspects] = useState([])
   const [showSettings, setShowSettings] = useState(false)
 
   // Carregar prospects e campos ao montar o componente
@@ -126,14 +129,26 @@ function App() {
     }
   }
 
-  // Aprovar prospects em lote (vindo da automação)
-  const handleApproveProspects = async (prospectsData) => {
+  // Aprovar prospects em lote (vindo da automação) - agora abre painel de aperfeiçoamento
+  const handleApproveProspects = (prospectsData) => {
+    // Fechar painel de automação
+    setShowAutomation(false)
+
+    // Guardar prospects aprovados e abrir painel de aperfeiçoamento
+    setApprovedProspects(prospectsData)
+    setShowEnhancement(true)
+  }
+
+  // Salvar prospects aperfeiçoados
+  const handleSaveEnhancedProspects = async (enhancedProspects) => {
     try {
-      for (const prospectData of prospectsData) {
-        const newProspect = await createProspect(prospectData)
+      for (const prospect of enhancedProspects) {
+        const newProspect = await createProspect(prospect.data)
         setProspects(prev => [...prev, newProspect])
       }
-      showToast(`${prospectsData.length} prospects adicionados!`, 'success')
+      showToast(`${enhancedProspects.length} prospects adicionados!`, 'success')
+      setShowEnhancement(false)
+      setApprovedProspects([])
     } catch (error) {
       showToast('Erro ao adicionar prospects', 'error')
     }
@@ -212,6 +227,17 @@ function App() {
         onClose={() => setShowAutomation(false)}
         fields={fields}
         onApproveProspects={handleApproveProspects}
+      />
+
+      <EnhancementPanel
+        isOpen={showEnhancement}
+        onClose={() => {
+          setShowEnhancement(false)
+          setApprovedProspects([])
+        }}
+        prospects={approvedProspects}
+        fields={fields}
+        onSaveEnhanced={handleSaveEnhancedProspects}
       />
 
       <SettingsPanel
