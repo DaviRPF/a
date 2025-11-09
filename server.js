@@ -1,7 +1,11 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import bodyParser from 'body-parser';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
@@ -9,7 +13,9 @@ const DATA_FILE = path.join(__dirname, 'prospects.json');
 
 // Middleware
 app.use(bodyParser.json());
-app.use(express.static('public'));
+
+// Servir arquivos estáticos do build do React
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Inicializar arquivo de dados se não existir
 if (!fs.existsSync(DATA_FILE)) {
@@ -97,6 +103,11 @@ app.delete('/api/prospects/:id', (req, res) => {
     } catch (error) {
         res.status(500).json({ error: 'Erro ao remover prospect' });
     }
+});
+
+// Servir index.html para todas as outras rotas (SPA routing)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {

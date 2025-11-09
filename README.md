@@ -1,37 +1,53 @@
 # 📋 Organizador de Prospects
 
-Aplicação web simples para organizar e gerenciar prospects com diferentes status de contato.
+Aplicação web profissional construída com **React** e **Node.js** para organizar e gerenciar prospects com diferentes status de contato.
+
+## ✨ Tecnologias
+
+- **Frontend**: React 18 + Vite
+- **Backend**: Node.js + Express
+- **Estilização**: CSS3 com animações e gradientes
+- **HTTP Client**: Axios
+- **Persistência**: Arquivo JSON no servidor
 
 ## 🚀 Como Usar
 
 ### 1. Instalar Dependências
 
-Primeiro, instale as dependências do Node.js:
+Primeiro, instale as dependências do projeto:
 
 ```bash
 npm install
 ```
 
-### 2. Iniciar o Servidor
+### 2. Modo Desenvolvimento
 
-Execute o servidor com o comando:
+Para desenvolvimento, rode o frontend e backend simultaneamente:
 
+```bash
+npm run dev
+```
+
+Isso irá:
+- Iniciar o servidor backend na porta **3000**
+- Iniciar o Vite dev server na porta **5173**
+- Abrir automaticamente o navegador em `http://localhost:5173`
+
+### 3. Modo Produção
+
+Para usar em produção:
+
+**Passo 1:** Fazer o build do React:
+```bash
+npm run build
+```
+
+**Passo 2:** Iniciar o servidor:
 ```bash
 npm start
 ```
 
-O servidor irá iniciar na porta 3000. Você verá a mensagem:
-```
-🚀 Servidor rodando em http://localhost:3000
-📁 Dados salvos em: /caminho/para/prospects.json
-```
-
-### 3. Acessar a Aplicação
-
-Abra seu navegador e acesse:
-```
-http://localhost:3000
-```
+**Passo 3:** Acessar em `http://localhost:3000`
 
 ## 📝 Funcionalidades
 
@@ -82,19 +98,41 @@ Para parar o servidor, pressione `Ctrl + C` no terminal onde ele está rodando.
 
 ```
 prospect-organizer/
-├── server.js           # Servidor backend Node.js
-├── package.json        # Dependências do projeto
-├── prospects.json      # Arquivo de dados (criado automaticamente)
-└── public/
-    ├── index.html     # Interface HTML
-    ├── style.css      # Estilos CSS
-    └── app.js         # Lógica JavaScript
+├── server.js                  # Servidor backend Node.js + Express
+├── package.json               # Dependências e scripts
+├── vite.config.js            # Configuração do Vite
+├── index.html                # Template HTML
+├── prospects.json            # Arquivo de dados (criado automaticamente)
+├── src/
+│   ├── main.jsx              # Entry point do React
+│   ├── App.jsx               # Componente principal
+│   ├── components/           # Componentes React
+│   │   ├── ProspectForm.jsx
+│   │   ├── ProspectCard.jsx
+│   │   ├── ProspectList.jsx
+│   │   ├── StatusFilter.jsx
+│   │   └── Toast.jsx
+│   ├── services/             # Serviços de API
+│   │   └── api.js
+│   └── styles/               # Arquivos CSS
+│       ├── index.css
+│       ├── App.css
+│       ├── ProspectForm.css
+│       ├── ProspectCard.css
+│       ├── ProspectList.css
+│       ├── StatusFilter.css
+│       └── Toast.css
+└── dist/                     # Build de produção (gerado)
 ```
 
 ## 🎨 Recursos
 
-- Interface moderna e responsiva
-- Persistência de dados em arquivo JSON
-- Filtros por status
-- Notificações de sucesso/erro
-- Design intuitivo e fácil de usar
+- ⚛️ Interface moderna construída com React
+- 🎨 Design responsivo com gradientes e animações
+- 💾 Persistência de dados em arquivo JSON no servidor
+- 🔍 Filtros por status em tempo real
+- 🔔 Notificações toast de sucesso/erro
+- ⚡ Performance otimizada com Vite
+- 📱 Totalmente responsivo para mobile
+- 🎯 Gerenciamento de estado com React Hooks
+- 🔄 Hot Module Replacement (HMR) em desenvolvimento
