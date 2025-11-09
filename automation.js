@@ -11,6 +11,10 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Debug: Verificar se variáveis de ambiente foram carregadas
+console.log('🔍 Debug - TWOCAPTCHA_TOKEN:', process.env.TWOCAPTCHA_TOKEN ? '***CONFIGURADO***' : 'NÃO ENCONTRADO');
+console.log('🔍 Debug - GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? '***CONFIGURADO***' : 'NÃO ENCONTRADO');
+
 // Configurar plugins do Puppeteer
 puppeteer.use(StealthPlugin());
 
