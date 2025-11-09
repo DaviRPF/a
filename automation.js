@@ -193,7 +193,131 @@ export async function saveSession() {
     }
 }
 
-// Função para buscar no Google com resolução automática de captcha
+// Função auxiliar para extrair links do Instagram da página atual
+async function extractInstagramLinksFromPage() {
+    const retries = 3;
+
+    for (let i = 0; i < retries; i++) {
+        try {
+            const links = await page.evaluate(() => {
+                const linksFound = [];
+                const anchors = document.querySelectorAll('a[href*="instagram.com"]');
+
+                anchors.forEach(anchor => {
+                    const href = anchor.href;
+                    const match = href.match(/instagram\.com\/([^\/\?]+)/);
+                    if (match && match[1] && !['p', 'reel', 'stories', 'explore', 'accounts'].includes(match[1])) {
+                        const username = match[1];
+                        if (!linksFound.find(l => l.username === username)) {
+                            linksFound.push({
+                                username: username,
+                                url: `https://www.instagram.com/${username}/`
+                            });
+                        }
+                    }
+                });
+
+                return linksFound;
+            });
+
+            console.log(`✅ Extração bem-sucedida na tentativa ${i + 1} - Encontrados ${links.length} perfis`);
+            return links;
+
+        } catch (evalError) {
+            if (evalError.message.includes('Execution context was destroyed')) {
+                console.log(`⚠️ Contexto destruído na tentativa ${i + 1}/${retries}. Aguardando e tentando novamente...`);
+                if (i < retries - 1) {
+                    await delay(5000);
+                } else {
+                    console.log('❌ Falhou após todas as tentativas. Retornando lista vazia.');
+                    return [];
+                }
+            } else {
+                throw evalError;
+            }
+        }
+    }
+
+    return [];
+}
+
+// Função para resolver captcha (extraída para reutilização)
+async function solveCaptchaIfNeeded() {
+    console.log('🔍 Debug - TWOCAPTCHA_TOKEN está configurado?', process.env.TWOCAPTCHA_TOKEN ? 'SIM' : 'NÃO');
+    console.log('🔍 Debug - page.solveRecaptchas existe?', typeof page.solveRecaptchas === 'function' ? 'SIM' : 'NÃO');
+
+    // Verificar se há captcha e tentar resolver automaticamente
+    if (process.env.TWOCAPTCHA_TOKEN && page.solveRecaptchas) {
+        try {
+            console.log('🤖 Tentando resolver captcha automaticamente com 2captcha...');
+
+            // Configurar listener para navegação antes de resolver o captcha
+            const navigationPromise = page.waitForNavigation({
+                waitUntil: 'domcontentloaded',
+                timeout: 90000
+            }).catch(() => {
+                console.log('⏳ Timeout na espera de navegação (pode ser normal se não houve navegação)');
+                return null;
+            });
+
+            const result = await page.solveRecaptchas();
+
+            console.log('🔍 Debug - Resultado do solveRecaptchas:', JSON.stringify({
+                captchas: result.captchas?.length || 0,
+                solutions: result.solutions?.length || 0,
+                solved: result.solved?.length || 0,
+                error: result.error || 'nenhum'
+            }));
+
+            if (result.solved && result.solved.length > 0) {
+                console.log(`✅ Captcha resolvido automaticamente! ${result.solved.length} captcha(s)`);
+
+                // Aguardar a navegação completar após resolver o captcha
+                console.log('⏳ Aguardando navegação após resolver captcha...');
+                const navResult = await navigationPromise;
+
+                if (navResult) {
+                    console.log('✅ Navegação completada');
+                } else {
+                    console.log('⚠️ Navegação não detectada ou timeout');
+                }
+
+                // Aguardar mais tempo para estabilização
+                console.log('⏳ Aguardando estabilização da página (10 segundos)...');
+                await delay(10000);
+
+                // Verificar se a página ainda está válida
+                try {
+                    const url = await page.url();
+                    console.log('✅ Página ainda válida. URL:', url);
+                } catch (e) {
+                    console.log('❌ Página parece ter navegado. Aguardando mais...');
+                    await delay(5000);
+                }
+            } else {
+                console.log('ℹ️ Nenhum captcha encontrado na página ou já estava resolvido');
+            }
+
+            if (result.error) {
+                console.error('❌ Erro ao resolver captcha:', result.error);
+            }
+        } catch (captchaError) {
+            console.log('❌ Exceção ao tentar resolver captcha:', captchaError.message);
+            console.log('Aguardando 30 segundos para resolução manual do captcha...');
+            await delay(30000);
+        }
+    } else {
+        console.log('⚠️ Plugin de captcha não configurado ou token não fornecido');
+        console.log('Aguardando 30 segundos para resolução manual do captcha...');
+        await delay(30000);
+    }
+
+    // Aguardar mais um pouco para garantir que qualquer navegação terminou
+    console.log('⏳ Aguardando estabilização final...');
+    await delay(5000);
+}
+
+// Função para buscar no Google com resolução automática de captcha e paginação
 export async function searchGoogleForInstagram(businessType, city, limit = 10) {
     try {
         const browser = await initBrowser();
@@ -204,168 +328,89 @@ export async function searchGoogleForInstagram(businessType, city, limit = 10) {
         }
 
         const searchQuery = `${businessType} ${city} instagram`;
-        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+        let allProfiles = [];
+        const maxPages = 5; // Máximo 5 páginas do Google (50 resultados)
+        let currentPage = 0;
 
         console.log('Buscando no Google:', searchQuery);
-        console.log('🔍 Navegando para:', googleUrl);
+        console.log(`🎯 Meta: ${limit} estabelecimentos`);
 
-        // Usar 'domcontentloaded' em vez de 'networkidle2' para não travar em páginas com captcha
-        await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        console.log('✅ Página carregada');
+        while (allProfiles.length < limit && currentPage < maxPages) {
+            const startParam = currentPage * 10;
+            const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&start=${startParam}`;
 
-        // Aguardar um pouco para garantir que o captcha apareça se houver
-        await delay(2000);
+            console.log(`\n📄 Página ${currentPage + 1} do Google (start=${startParam})`);
+            console.log('🔍 Navegando para:', googleUrl);
 
-        console.log('🔍 Debug - TWOCAPTCHA_TOKEN está configurado?', process.env.TWOCAPTCHA_TOKEN ? 'SIM' : 'NÃO');
-        console.log('🔍 Debug - page.solveRecaptchas existe?', typeof page.solveRecaptchas === 'function' ? 'SIM' : 'NÃO');
-
-        // Verificar se há captcha e tentar resolver automaticamente
-        if (process.env.TWOCAPTCHA_TOKEN && page.solveRecaptchas) {
-            try {
-                console.log('🤖 Tentando resolver captcha automaticamente com 2captcha...');
-
-                // Configurar listener para navegação antes de resolver o captcha
-                const navigationPromise = page.waitForNavigation({
-                    waitUntil: 'domcontentloaded',
-                    timeout: 90000
-                }).catch(() => {
-                    console.log('⏳ Timeout na espera de navegação (pode ser normal se não houve navegação)');
-                    return null;
-                });
-
-                const result = await page.solveRecaptchas();
-
-                console.log('🔍 Debug - Resultado do solveRecaptchas:', JSON.stringify({
-                    captchas: result.captchas?.length || 0,
-                    solutions: result.solutions?.length || 0,
-                    solved: result.solved?.length || 0,
-                    error: result.error || 'nenhum'
-                }));
-
-                if (result.solved && result.solved.length > 0) {
-                    console.log(`✅ Captcha resolvido automaticamente! ${result.solved.length} captcha(s)`);
-
-                    // Aguardar a navegação completar após resolver o captcha
-                    console.log('⏳ Aguardando navegação após resolver captcha...');
-                    const navResult = await navigationPromise;
-
-                    if (navResult) {
-                        console.log('✅ Navegação completada');
-                    } else {
-                        console.log('⚠️ Navegação não detectada ou timeout');
-                    }
-
-                    // Aguardar mais tempo para estabilização
-                    console.log('⏳ Aguardando estabilização da página (10 segundos)...');
-                    await delay(10000);
-
-                    // Verificar se a página ainda está válida
-                    try {
-                        const url = await page.url();
-                        console.log('✅ Página ainda válida. URL:', url);
-                    } catch (e) {
-                        console.log('❌ Página parece ter navegado. Aguardando mais...');
-                        await delay(5000);
-                    }
-                } else {
-                    console.log('ℹ️ Nenhum captcha encontrado na página ou já estava resolvido');
-                }
-
-                if (result.error) {
-                    console.error('❌ Erro ao resolver captcha:', result.error);
-                }
-            } catch (captchaError) {
-                console.log('❌ Exceção ao tentar resolver captcha:', captchaError.message);
-                console.log('Aguardando 30 segundos para resolução manual do captcha...');
-                await delay(30000);
-            }
-        } else {
-            console.log('⚠️ Plugin de captcha não configurado ou token não fornecido');
-            console.log('Aguardando 30 segundos para resolução manual do captcha...');
-            await delay(30000);
-        }
-
-        // Aguardar mais um pouco para garantir que qualquer navegação terminou
-        console.log('⏳ Aguardando estabilização final...');
-        await delay(5000);
-
-        // Verificar URL atual após resolver captcha
-        const currentUrl = page.url();
-        console.log('🔍 Debug - URL atual após captcha:', currentUrl);
-
-        // Se ainda estiver em página de captcha ou erro, tentar navegar novamente
-        if (currentUrl.includes('sorry/index') || currentUrl.includes('recaptcha')) {
-            console.log('⚠️ Ainda em página de captcha/erro. Tentando navegar para resultados novamente...');
+            // Usar 'domcontentloaded' em vez de 'networkidle2' para não travar em páginas com captcha
             await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-            await delay(3000);
-        }
+            console.log('✅ Página carregada');
 
-        console.log('🔍 Procurando links do Instagram na página...');
+            // Aguardar um pouco para garantir que o captcha apareça se houver
+            await delay(2000);
 
-        // Garantir que a página está pronta antes de fazer evaluate
-        await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 }).catch(() => {
-            console.log('⚠️ Página não alcançou readyState complete, continuando mesmo assim...');
-        });
+            // Resolver captcha apenas na primeira página
+            if (currentPage === 0) {
+                await solveCaptchaIfNeeded();
+            }
 
-        // Extrair links do Instagram dos resultados com retry se contexto for destruído
-        let instagramLinks = [];
-        let retries = 3;
+            // Verificar URL atual
+            const currentUrl = page.url();
+            console.log('🔍 Debug - URL atual:', currentUrl);
 
-        for (let i = 0; i < retries; i++) {
-            try {
-                instagramLinks = await page.evaluate(() => {
-                    const links = [];
-                    const anchors = document.querySelectorAll('a[href*="instagram.com"]');
+            // Garantir que a página está pronta antes de fazer evaluate
+            await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 }).catch(() => {
+                console.log('⚠️ Página não alcançou readyState complete, continuando mesmo assim...');
+            });
 
-                    anchors.forEach(anchor => {
-                        const href = anchor.href;
-                        // Filtrar apenas perfis do Instagram
-                        const match = href.match(/instagram\.com\/([^\/\?]+)/);
-                        if (match && match[1] && !['p', 'reel', 'stories', 'explore', 'accounts'].includes(match[1])) {
-                            const username = match[1];
-                            if (!links.find(l => l.username === username)) {
-                                links.push({
-                                    username: username,
-                                    url: `https://www.instagram.com/${username}/`
-                                });
-                            }
-                        }
-                    });
+            console.log('🔍 Procurando links do Instagram na página...');
 
-                    return links;
-                });
+            // Extrair links do Instagram dos resultados
+            const pageProfiles = await extractInstagramLinksFromPage();
 
-                console.log(`✅ Extração bem-sucedida na tentativa ${i + 1}`);
-                break; // Sucesso, sair do loop
-
-            } catch (evalError) {
-                if (evalError.message.includes('Execution context was destroyed')) {
-                    console.log(`⚠️ Contexto destruído na tentativa ${i + 1}/${retries}. Aguardando e tentando novamente...`);
-                    if (i < retries - 1) {
-                        await delay(5000);
-                    } else {
-                        console.log('❌ Falhou após todas as tentativas. Retornando lista vazia.');
-                        throw evalError;
-                    }
-                } else {
-                    throw evalError; // Outro tipo de erro, propagar
+            // Adicionar apenas perfis únicos
+            for (const profile of pageProfiles) {
+                if (!allProfiles.find(p => p.username === profile.username)) {
+                    allProfiles.push(profile);
                 }
+            }
+
+            console.log(`📊 Total acumulado: ${allProfiles.length} perfis únicos`);
+
+            // Se não encontrou nenhum perfil novo nesta página, provavelmente não há mais resultados
+            if (pageProfiles.length === 0) {
+                console.log('⚠️ Nenhum perfil encontrado nesta página. Encerrando busca.');
+                break;
+            }
+
+            // Se já temos perfis suficientes, parar
+            if (allProfiles.length >= limit) {
+                console.log(`✅ Meta atingida! ${allProfiles.length} perfis encontrados.`);
+                break;
+            }
+
+            // Ir para próxima página
+            currentPage++;
+
+            // Aguardar um pouco antes de ir para próxima página
+            if (currentPage < maxPages && allProfiles.length < limit) {
+                console.log('⏳ Aguardando antes de ir para próxima página...');
+                await delay(3000);
             }
         }
 
-        console.log(`✅ Encontrados ${instagramLinks.length} perfis do Instagram únicos`);
-
-        if (instagramLinks.length === 0) {
+        if (allProfiles.length === 0) {
             console.log('⚠️ Nenhum perfil encontrado. Possíveis causas:');
             console.log('   - Captcha ainda não foi resolvido completamente');
             console.log('   - Google bloqueou a busca');
             console.log('   - Página não carregou corretamente');
         } else {
-            console.log('📋 Perfis encontrados:', instagramLinks.map(l => l.username).join(', '));
+            console.log('\n📋 Perfis encontrados:', allProfiles.map(l => l.username).join(', '));
         }
 
-        console.log(`📊 Retornando ${Math.min(limit, instagramLinks.length)} de ${instagramLinks.length} perfis encontrados`);
-        return instagramLinks.slice(0, limit);
+        const finalCount = Math.min(limit, allProfiles.length);
+        console.log(`\n📊 Resultado final: Retornando ${finalCount} de ${allProfiles.length} perfis encontrados`);
+        return allProfiles.slice(0, limit);
     } catch (error) {
         console.error('Erro na busca:', error);
         return [];
