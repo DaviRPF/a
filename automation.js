@@ -6,10 +6,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Forçar carregamento do .env com caminho explícito
+const envPath = path.join(__dirname, '.env');
+console.log('🔍 Debug - Tentando carregar .env de:', envPath);
+console.log('🔍 Debug - Arquivo .env existe?', fs.existsSync(envPath) ? 'SIM' : 'NÃO');
+
+const result = dotenv.config({ path: envPath });
+if (result.error) {
+    console.log('❌ Erro ao carregar .env:', result.error.message);
+} else {
+    console.log('✅ Arquivo .env carregado com sucesso');
+}
 
 // Debug: Verificar se variáveis de ambiente foram carregadas
 console.log('🔍 Debug - TWOCAPTCHA_TOKEN:', process.env.TWOCAPTCHA_TOKEN ? '***CONFIGURADO***' : 'NÃO ENCONTRADO');
