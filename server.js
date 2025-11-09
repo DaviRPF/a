@@ -19,6 +19,7 @@ const DATA_FILE = path.join(__dirname, 'prospects.json');
 const FIELDS_CONFIG_FILE = path.join(__dirname, 'fields-config.json');
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
 const BUSINESS_TYPES_FILE = path.join(__dirname, 'business-types.json');
+const PENDING_PROSPECTS_FILE = path.join(__dirname, 'pending-prospects.json');
 
 // Inicializar Gemini AI
 let genAI = null;
@@ -79,6 +80,11 @@ if (!fs.existsSync(BUSINESS_TYPES_FILE)) {
     fs.writeFileSync(BUSINESS_TYPES_FILE, JSON.stringify(DEFAULT_BUSINESS_TYPES, null, 2));
 }
 
+// Inicializar arquivo de prospects pendentes se não existir
+if (!fs.existsSync(PENDING_PROSPECTS_FILE)) {
+    fs.writeFileSync(PENDING_PROSPECTS_FILE, JSON.stringify([], null, 2));
+}
+
 // Função para ler prospects
 function readProspects() {
     const data = fs.readFileSync(DATA_FILE, 'utf8');
@@ -121,6 +127,17 @@ function readBusinessTypes() {
 // Função para salvar tipos de estabelecimento
 function saveBusinessTypes(types) {
     fs.writeFileSync(BUSINESS_TYPES_FILE, JSON.stringify(types, null, 2));
+}
+
+// Função para ler prospects pendentes
+function readPendingProspects() {
+    const data = fs.readFileSync(PENDING_PROSPECTS_FILE, 'utf8');
+    return JSON.parse(data);
+}
+
+// Função para salvar prospects pendentes
+function savePendingProspects(prospects) {
+    fs.writeFileSync(PENDING_PROSPECTS_FILE, JSON.stringify(prospects, null, 2));
 }
 
 // GET - Listar todos os prospects
@@ -295,6 +312,39 @@ app.post('/api/settings', (req, res) => {
         res.json(newSettings);
     } catch (error) {
         res.status(500).json({ error: 'Erro ao salvar configurações' });
+    }
+});
+
+// ============= ROTAS DE PROSPECTS PENDENTES =============
+
+// GET - Listar prospects pendentes
+app.get('/api/pending-prospects', (req, res) => {
+    try {
+        const pendingProspects = readPendingProspects();
+        res.json(pendingProspects);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao ler prospects pendentes' });
+    }
+});
+
+// POST - Salvar prospects pendentes
+app.post('/api/pending-prospects', (req, res) => {
+    try {
+        const { prospects } = req.body;
+        savePendingProspects(prospects);
+        res.json({ success: true, message: 'Prospects pendentes salvos' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao salvar prospects pendentes' });
+    }
+});
+
+// DELETE - Limpar prospects pendentes
+app.delete('/api/pending-prospects', (req, res) => {
+    try {
+        savePendingProspects([]);
+        res.json({ success: true, message: 'Prospects pendentes limpos' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao limpar prospects pendentes' });
     }
 });
 

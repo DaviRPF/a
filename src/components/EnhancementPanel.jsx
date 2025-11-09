@@ -72,7 +72,14 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Limpar prospects pendentes ao salvar (já que estão sendo salvos como prospects normais)
+    try {
+      await axios.delete('/api/pending-prospects')
+    } catch (error) {
+      console.error('Erro ao limpar prospects pendentes:', error)
+    }
+
     onSaveEnhanced(enhancedProspects)
     if (eventSource) {
       eventSource.close()
@@ -80,7 +87,15 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
     onClose()
   }
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    // Salvar prospects como pendentes ao cancelar
+    try {
+      await axios.post('/api/pending-prospects', { prospects: enhancedProspects })
+      console.log('Prospects salvos como pendentes')
+    } catch (error) {
+      console.error('Erro ao salvar prospects pendentes:', error)
+    }
+
     if (eventSource) {
       eventSource.close()
     }

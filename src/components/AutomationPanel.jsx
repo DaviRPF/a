@@ -22,12 +22,15 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
     if (isOpen) {
       checkLoginStatus()
       loadBusinessTypes()
+      loadPendingProspects()
     }
 
     return () => {
       if (eventSource) {
         eventSource.close()
       }
+      // Salvar prospects pendentes ao fechar
+      savePendingProspects()
     }
   }, [isOpen])
 
@@ -59,6 +62,32 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
       setBusinessTypes(response.data)
     } catch (error) {
       console.error('Erro ao carregar tipos:', error)
+    }
+  }
+
+  const loadPendingProspects = async () => {
+    try {
+      const response = await axios.get('/api/pending-prospects')
+      if (response.data && response.data.length > 0) {
+        setFoundProspects(response.data)
+        setStatusMessage(`${response.data.length} prospects pendentes carregados`)
+        setTimeout(() => setStatusMessage(''), 3000)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar prospects pendentes:', error)
+    }
+  }
+
+  const savePendingProspects = async () => {
+    try {
+      // Salvar apenas prospects que não foram aprovados nem recusados
+      const pendingProspects = foundProspects.filter(p => !p.approved && !p.rejected)
+      if (pendingProspects.length > 0) {
+        await axios.post('/api/pending-prospects', { prospects: pendingProspects })
+        console.log(`${pendingProspects.length} prospects pendentes salvos`)
+      }
+    } catch (error) {
+      console.error('Erro ao salvar prospects pendentes:', error)
     }
   }
 
@@ -205,7 +234,15 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   const handleToggleApprove = (id) => {
     setFoundProspects(prev =>
       prev.map(p =>
-        p.id === id ? { ...p, approved: !p.approved } : p
+        p.id === id ? { ...p, approved: !p.approved, rejected: false } : p
+      )
+    )
+  }
+
+  const handleToggleReject = (id) => {
+    setFoundProspects(prev =>
+      prev.map(p =>
+        p.id === id ? { ...p, rejected: !p.rejected, approved: false } : p
       )
     )
   }
@@ -218,14 +255,32 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
       return
     }
 
+    // Salvar prospects pendentes (não aprovados nem recusados) antes de enviar aprovados
+    await savePendingProspects()
+
     // Enviar prospects aprovados para aperfeiçoamento (objeto completo com id, data, etc)
     onApproveProspects(approvedProspects)
 
-    // Limpar campos mas não fechar - o painel será fechado pelo App.jsx
-    setFoundProspects([])
-    setBusinessType('')
-    setCity('')
-    setStatusMessage('')
+    // Remover apenas os aprovados e recusados da lista
+    const remainingProspects = foundProspects.filter(p => !p.approved && !p.rejected)
+    setFoundProspects(remainingProspects)
+
+    // Se não sobrou nenhum, limpar tudo
+    if (remainingProspects.length === 0) {
+      setBusinessType('')
+      setCity('')
+      setStatusMessage('')
+    } else {
+      setStatusMessage(`${remainingProspects.length} prospects pendentes salvos`)
+      setTimeout(() => setStatusMessage(''), 3000)
+    }
+  }
+
+  const handleClearRejected = () => {
+    const nonRejected = foundProspects.filter(p => !p.rejected)
+    setFoundProspects(nonRejected)
+    setStatusMessage('Prospects recusados removidos')
+    setTimeout(() => setStatusMessage(''), 2000)
   }
 
   const handleCloseBrowser = async () => {
@@ -370,9 +425,16 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
             <div className="prospects-section">
               <div className="prospects-header">
                 <h3>Prospects Encontrados ({foundProspects.length})</h3>
-                <button className="btn-save-approved" onClick={handleSaveApproved}>
-                  💾 Salvar Aprovados ({foundProspects.filter(p => p.approved).length})
-                </button>
+                <div className="prospects-actions">
+                  <button className="btn-save-approved" onClick={handleSaveApproved}>
+                    💾 Salvar Aprovados ({foundProspects.filter(p => p.approved).length})
+                  </button>
+                  {foundProspects.filter(p => p.rejected).length > 0 && (
+                    <button className="btn-clear-rejected" onClick={handleClearRejected}>
+                      🗑️ Limpar Recusados ({foundProspects.filter(p => p.rejected).length})
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="prospects-list">
@@ -383,16 +445,24 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
                   return (
                     <div
                       key={prospect.id}
-                      className={`prospect-preview ${prospect.approved ? 'approved' : ''}`}
+                      className={`prospect-preview ${prospect.approved ? 'approved' : ''} ${prospect.rejected ? 'rejected' : ''}`}
                     >
                       <div className="prospect-preview-header">
                         <h4>{title}</h4>
-                        <button
-                          className={`btn-toggle-approve ${prospect.approved ? 'approved' : ''}`}
-                          onClick={() => handleToggleApprove(prospect.id)}
-                        >
-                          {prospect.approved ? '✓ Aprovado' : '○ Aprovar'}
-                        </button>
+                        <div className="prospect-actions">
+                          <button
+                            className={`btn-toggle-approve ${prospect.approved ? 'approved' : ''}`}
+                            onClick={() => handleToggleApprove(prospect.id)}
+                          >
+                            {prospect.approved ? '✓ Aprovado' : '○ Aprovar'}
+                          </button>
+                          <button
+                            className={`btn-toggle-reject ${prospect.rejected ? 'rejected' : ''}`}
+                            onClick={() => handleToggleReject(prospect.id)}
+                          >
+                            {prospect.rejected ? '✕ Recusado' : '○ Recusar'}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="prospect-preview-data">

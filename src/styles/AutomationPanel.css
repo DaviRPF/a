@@ -283,6 +283,12 @@
   font-size: 1.3rem;
 }
 
+.prospects-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .btn-save-approved {
   background: var(--success);
   color: white;
@@ -298,6 +304,23 @@
   background: #0d9465;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-clear-rejected {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-clear-rejected:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
 }
 
 .prospects-list {
@@ -322,6 +345,12 @@
   background: var(--bg-tertiary);
 }
 
+.prospect-preview.rejected {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.05);
+  opacity: 0.7;
+}
+
 .prospect-preview:hover {
   border-color: var(--primary);
 }
@@ -332,6 +361,11 @@
   align-items: center;
   margin-bottom: 15px;
   gap: 15px;
+}
+
+.prospect-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .prospect-preview-header h4 {
@@ -360,6 +394,29 @@
 .btn-toggle-approve.approved {
   background: var(--success);
   border-color: var(--success);
+  color: white;
+}
+
+.btn-toggle-reject {
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-toggle-reject:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-toggle-reject.rejected {
+  background: var(--danger);
+  border-color: var(--danger);
   color: white;
 }
 
