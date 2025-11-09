@@ -244,11 +244,29 @@ export async function searchGoogleForInstagram(businessType, city) {
 
                 if (result.solved && result.solved.length > 0) {
                     console.log(`✅ Captcha resolvido automaticamente! ${result.solved.length} captcha(s)`);
+
                     // Aguardar a navegação completar após resolver o captcha
                     console.log('⏳ Aguardando navegação após resolver captcha...');
-                    await navigationPromise;
-                    console.log('✅ Navegação completada, aguardando estabilização...');
-                    await delay(3000);
+                    const navResult = await navigationPromise;
+
+                    if (navResult) {
+                        console.log('✅ Navegação completada');
+                    } else {
+                        console.log('⚠️ Navegação não detectada ou timeout');
+                    }
+
+                    // Aguardar mais tempo para estabilização
+                    console.log('⏳ Aguardando estabilização da página (10 segundos)...');
+                    await delay(10000);
+
+                    // Verificar se a página ainda está válida
+                    try {
+                        const url = await page.url();
+                        console.log('✅ Página ainda válida. URL:', url);
+                    } catch (e) {
+                        console.log('❌ Página parece ter navegado. Aguardando mais...');
+                        await delay(5000);
+                    }
                 } else {
                     console.log('ℹ️ Nenhum captcha encontrado na página ou já estava resolvido');
                 }
@@ -267,6 +285,10 @@ export async function searchGoogleForInstagram(businessType, city) {
             await delay(30000);
         }
 
+        // Aguardar mais um pouco para garantir que qualquer navegação terminou
+        console.log('⏳ Aguardando estabilização final...');
+        await delay(5000);
+
         // Verificar URL atual após resolver captcha
         const currentUrl = page.url();
         console.log('🔍 Debug - URL atual após captcha:', currentUrl);
@@ -280,30 +302,56 @@ export async function searchGoogleForInstagram(businessType, city) {
 
         console.log('🔍 Procurando links do Instagram na página...');
 
-        // Extrair links do Instagram dos resultados
-        const instagramLinks = await page.evaluate(() => {
-            const links = [];
-            const anchors = document.querySelectorAll('a[href*="instagram.com"]');
-
-            console.log(`🔍 Total de links com "instagram.com" encontrados: ${anchors.length}`);
-
-            anchors.forEach(anchor => {
-                const href = anchor.href;
-                // Filtrar apenas perfis do Instagram
-                const match = href.match(/instagram\.com\/([^\/\?]+)/);
-                if (match && match[1] && !['p', 'reel', 'stories', 'explore', 'accounts'].includes(match[1])) {
-                    const username = match[1];
-                    if (!links.find(l => l.username === username)) {
-                        links.push({
-                            username: username,
-                            url: `https://www.instagram.com/${username}/`
-                        });
-                    }
-                }
-            });
-
-            return links;
+        // Garantir que a página está pronta antes de fazer evaluate
+        await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 }).catch(() => {
+            console.log('⚠️ Página não alcançou readyState complete, continuando mesmo assim...');
         });
+
+        // Extrair links do Instagram dos resultados com retry se contexto for destruído
+        let instagramLinks = [];
+        let retries = 3;
+
+        for (let i = 0; i < retries; i++) {
+            try {
+                instagramLinks = await page.evaluate(() => {
+                    const links = [];
+                    const anchors = document.querySelectorAll('a[href*="instagram.com"]');
+
+                    anchors.forEach(anchor => {
+                        const href = anchor.href;
+                        // Filtrar apenas perfis do Instagram
+                        const match = href.match(/instagram\.com\/([^\/\?]+)/);
+                        if (match && match[1] && !['p', 'reel', 'stories', 'explore', 'accounts'].includes(match[1])) {
+                            const username = match[1];
+                            if (!links.find(l => l.username === username)) {
+                                links.push({
+                                    username: username,
+                                    url: `https://www.instagram.com/${username}/`
+                                });
+                            }
+                        }
+                    });
+
+                    return links;
+                });
+
+                console.log(`✅ Extração bem-sucedida na tentativa ${i + 1}`);
+                break; // Sucesso, sair do loop
+
+            } catch (evalError) {
+                if (evalError.message.includes('Execution context was destroyed')) {
+                    console.log(`⚠️ Contexto destruído na tentativa ${i + 1}/${retries}. Aguardando e tentando novamente...`);
+                    if (i < retries - 1) {
+                        await delay(5000);
+                    } else {
+                        console.log('❌ Falhou após todas as tentativas. Retornando lista vazia.');
+                        throw evalError;
+                    }
+                } else {
+                    throw evalError; // Outro tipo de erro, propagar
+                }
+            }
+        }
 
         console.log(`✅ Encontrados ${instagramLinks.length} perfis do Instagram únicos`);
 
