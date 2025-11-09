@@ -7,7 +7,7 @@
 
 .status-filter label {
   font-weight: 600;
-  color: var(--dark);
+  color: var(--text-primary);
   font-size: 1rem;
 }
 
@@ -16,7 +16,8 @@
   border: 2px solid var(--border);
   border-radius: 8px;
   font-size: 1rem;
-  background: white;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.3s ease;
   min-width: 220px;

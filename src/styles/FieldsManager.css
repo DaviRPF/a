@@ -1,5 +1,5 @@
 .fields-manager {
-  background: var(--light);
+  background: var(--bg-secondary);
   padding: 25px;
   border-radius: 12px;
   border: 2px dashed var(--border);
@@ -17,7 +17,7 @@
 
 .manager-header h3 {
   font-size: 1.3rem;
-  color: var(--dark);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -38,11 +38,12 @@
 }
 
 .field-form {
-  background: white;
+  background: var(--bg-card);
   padding: 20px;
   border-radius: 10px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px var(--shadow);
+  border: 1px solid var(--border);
   animation: slideDown 0.3s ease-out;
 }
 
@@ -72,7 +73,7 @@
   gap: 8px;
   cursor: pointer;
   font-weight: 600;
-  color: var(--dark);
+  color: var(--text-primary);
 }
 
 .checkbox-group input[type="checkbox"] {
@@ -83,7 +84,7 @@
 
 .field-form label {
   font-weight: 600;
-  color: var(--dark);
+  color: var(--text-primary);
   margin-bottom: 6px;
   font-size: 0.9rem;
 }
@@ -95,6 +96,8 @@
   border-radius: 6px;
   font-size: 0.95rem;
   transition: border-color 0.3s ease;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .field-form input:focus,
@@ -130,7 +133,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: var(--bg-card);
   padding: 15px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -161,13 +164,13 @@
 
 .field-label {
   font-weight: 600;
-  color: var(--dark);
+  color: var(--text-primary);
   font-size: 1rem;
 }
 
 .field-meta {
   font-size: 0.85rem;
-  color: var(--gray);
+  color: var(--text-secondary);
 }
 
 .field-actions {

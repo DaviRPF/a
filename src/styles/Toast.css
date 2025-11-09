@@ -48,7 +48,7 @@
 
 .toast-warning {
   background: var(--warning);
-  color: var(--dark);
+  color: #0f0f23;
 }
 
 @media (max-width: 768px) {

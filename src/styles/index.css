@@ -1,18 +1,42 @@
 :root {
-  --primary: #667eea;
-  --primary-dark: #5568d3;
-  --secondary: #764ba2;
-  --success: #28a745;
-  --danger: #dc3545;
-  --warning: #ffc107;
-  --info: #17a2b8;
-  --light: #f8f9fa;
-  --dark: #343a40;
-  --gray: #6c757d;
-  --border: #dee2e6;
-  --shadow: rgba(0, 0, 0, 0.1);
-  --shadow-lg: rgba(0, 0, 0, 0.15);
-  --gradient: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  /* Cores primárias do tema escuro */
+  --primary: #7c3aed;
+  --primary-light: #9333ea;
+  --primary-dark: #6d28d9;
+  --secondary: #a855f7;
+
+  /* Cores de estado */
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  /* Backgrounds escuros */
+  --bg-primary: #0f0f23;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #16213e;
+  --bg-card: #1e1e3f;
+
+  /* Textos com alto contraste */
+  --text-primary: #f0f0f0;
+  --text-secondary: #b4b4c8;
+  --text-muted: #8b8b9e;
+
+  /* Bordas e separadores */
+  --border: #2d2d44;
+  --border-light: #3a3a52;
+
+  /* Sombras para profundidade */
+  --shadow: rgba(0, 0, 0, 0.3);
+  --shadow-lg: rgba(0, 0, 0, 0.5);
+  --shadow-colored: rgba(124, 58, 237, 0.4);
+
+  /* Gradientes vibrantes */
+  --gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  --gradient-hover: linear-gradient(135deg, #9333ea 0%, #c084fc 100%);
+
+  /* Estados hover */
+  --hover-bg: #252542;
 }
 
 * {
@@ -27,7 +51,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--gradient);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.6;
 }

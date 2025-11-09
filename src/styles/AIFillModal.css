@@ -14,7 +14,8 @@
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 700px;
@@ -46,14 +47,14 @@
   border: none;
   font-size: 1.8rem;
   cursor: pointer;
-  color: var(--gray);
+  color: var(--text-secondary);
   transition: all 0.3s ease;
   padding: 5px 10px;
   border-radius: 6px;
 }
 
 .btn-close-modal:hover {
-  background: var(--light);
+  background: var(--bg-secondary);
   color: var(--danger);
   transform: scale(1.1);
 }
@@ -63,11 +64,11 @@
 }
 
 .modal-description {
-  color: var(--gray);
+  color: var(--text-secondary);
   font-size: 1rem;
   margin-bottom: 25px;
   line-height: 1.6;
-  background: var(--light);
+  background: var(--bg-secondary);
   padding: 15px;
   border-radius: 8px;
   border-left: 4px solid var(--primary);
@@ -83,6 +84,8 @@
   resize: vertical;
   transition: all 0.3s ease;
   line-height: 1.6;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .ai-textarea:focus {
@@ -92,7 +95,7 @@
 }
 
 .ai-textarea::placeholder {
-  color: #adb5bd;
+  color: var(--text-muted);
   font-family: inherit;
 }
 
@@ -114,8 +117,8 @@
 }
 
 .btn-secondary {
-  background: white;
-  color: var(--gray);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
   border: 2px solid var(--border);
   padding: 12px 24px;
   border-radius: 8px;
@@ -126,8 +129,8 @@
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--light);
-  border-color: var(--gray);
+  background: var(--bg-secondary);
+  border-color: var(--border-light);
 }
 
 .btn-ai-process {

@@ -2,7 +2,7 @@
   border: 2px solid var(--border);
   border-radius: 12px;
   padding: 24px;
-  background: white;
+  background: var(--bg-card);
   transition: all 0.3s ease;
   animation: cardAppear 0.4s ease-out;
 }
@@ -24,13 +24,13 @@
 .prospect-name {
   font-size: 1.4rem;
   font-weight: 700;
-  color: var(--dark);
+  color: var(--text-primary);
   margin-bottom: 5px;
 }
 
 .prospect-date {
   font-size: 0.85rem;
-  color: var(--gray);
+  color: var(--text-secondary);
 }
 
 .btn-delete {
@@ -61,13 +61,13 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: var(--light);
+  background: var(--bg-secondary);
   border-radius: 8px;
   transition: background 0.3s ease;
 }
 
 .info-item:hover {
-  background: #e9ecef;
+  background: var(--hover-bg);
 }
 
 .info-icon {
@@ -77,14 +77,14 @@
 
 .info-label {
   font-size: 0.85rem;
-  color: var(--gray);
+  color: var(--text-secondary);
   font-weight: 600;
   display: block;
   margin-bottom: 2px;
 }
 
 .info-value {
-  color: var(--dark);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -116,7 +116,7 @@
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  color: var(--dark);
+  color: var(--text-primary);
   margin-bottom: 10px;
   font-size: 0.95rem;
 }
@@ -133,7 +133,7 @@
   font-size: 1rem;
   font-weight: 600;
   color: var(--primary);
-  background: white;
+  background: var(--bg-tertiary);
   cursor: pointer;
   transition: all 0.3s ease;
 }
