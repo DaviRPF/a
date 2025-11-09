@@ -16,6 +16,7 @@ puppeteer.use(StealthPlugin());
 
 // Configurar plugin de recaptcha com 2captcha
 if (process.env.TWOCAPTCHA_TOKEN) {
+    console.log('✅ 2Captcha configurado! Token detectado.');
     puppeteer.use(
         RecaptchaPlugin({
             provider: {
@@ -25,6 +26,8 @@ if (process.env.TWOCAPTCHA_TOKEN) {
             visualFeedback: true // Mostra o processo de resolução
         })
     );
+} else {
+    console.log('⚠️ 2Captcha NÃO configurado. Configure TWOCAPTCHA_TOKEN no arquivo .env');
 }
 
 const COOKIES_FILE = path.join(__dirname, 'instagram-cookies.json');
