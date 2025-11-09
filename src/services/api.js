@@ -51,4 +51,11 @@ export const deleteField = async (id) => {
   return response.data
 }
 
+// ============= API de IA =============
+
+export const extractWithAI = async (text) => {
+  const response = await api.post('/ai/extract', { text })
+  return response.data
+}
+
 export default api

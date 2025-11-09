@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import AIFillModal from './AIFillModal'
 import '../styles/ProspectForm.css'
 
 const ProspectForm = ({ onSubmit, fields = [] }) => {
   const [formData, setFormData] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showAIModal, setShowAIModal] = useState(false)
 
   // Inicializar formData baseado nos campos configurados
   useEffect(() => {
@@ -38,6 +40,14 @@ const ProspectForm = ({ onSubmit, fields = [] }) => {
     }
 
     setIsSubmitting(false)
+  }
+
+  const handleAIFill = (extractedData) => {
+    // Preencher formulário com dados extraídos pela IA
+    setFormData(prev => ({
+      ...prev,
+      ...extractedData
+    }))
   }
 
   const renderField = (field) => {
@@ -91,28 +101,46 @@ const ProspectForm = ({ onSubmit, fields = [] }) => {
   }
 
   return (
-    <form className="prospect-form" onSubmit={handleSubmit}>
-      <div className="form-grid">
-        {fields.map(field => (
-          <div key={field.id} className="form-group">
-            <label htmlFor={field.id}>
-              {field.icon && <span className="field-icon-label">{field.icon}</span>}
-              {field.label}
-              {field.required && <span className="required"> *</span>}
-            </label>
-            {renderField(field)}
-          </div>
-        ))}
+    <>
+      <div className="form-header-actions">
+        <button
+          type="button"
+          className="btn-ai-fill"
+          onClick={() => setShowAIModal(true)}
+        >
+          🤖 Preencher com IA
+        </button>
       </div>
 
-      <button
-        type="submit"
-        className="btn-primary"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? 'Adicionando...' : '➕ Adicionar Prospect'}
-      </button>
-    </form>
+      <form className="prospect-form" onSubmit={handleSubmit}>
+        <div className="form-grid">
+          {fields.map(field => (
+            <div key={field.id} className="form-group">
+              <label htmlFor={field.id}>
+                {field.icon && <span className="field-icon-label">{field.icon}</span>}
+                {field.label}
+                {field.required && <span className="required"> *</span>}
+              </label>
+              {renderField(field)}
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'Adicionando...' : '➕ Adicionar Prospect'}
+        </button>
+      </form>
+
+      <AIFillModal
+        isOpen={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        onFillData={handleAIFill}
+      />
+    </>
   )
 }
 

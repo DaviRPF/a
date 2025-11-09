@@ -3,6 +3,10 @@ import bodyParser from 'body-parser';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +15,12 @@ const app = express();
 const PORT = 3000;
 const DATA_FILE = path.join(__dirname, 'prospects.json');
 const FIELDS_CONFIG_FILE = path.join(__dirname, 'fields-config.json');
+
+// Inicializar Gemini AI
+let genAI = null;
+if (process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+}
 
 // Middleware
 app.use(bodyParser.json());
@@ -204,6 +214,80 @@ app.delete('/api/fields/:id', (req, res) => {
         res.json({ message: 'Campo removido com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao remover campo' });
+    }
+});
+
+// ============= ROTA DE IA - PREENCHIMENTO AUTOMÁTICO =============
+
+// POST - Processar texto com IA e extrair informações
+app.post('/api/ai/extract', async (req, res) => {
+    try {
+        if (!genAI) {
+            return res.status(503).json({
+                error: 'API do Gemini não configurada. Configure a variável GEMINI_API_KEY no arquivo .env'
+            });
+        }
+
+        const { text } = req.body;
+        const fields = readFieldsConfig();
+
+        if (!text) {
+            return res.status(400).json({ error: 'Texto não fornecido' });
+        }
+
+        // Preparar prompt para o Gemini
+        const fieldDescriptions = fields.map(f =>
+            `- ${f.id}: ${f.label} (tipo: ${f.type}${f.options ? ', opções: ' + f.options.join(', ') : ''})`
+        ).join('\n');
+
+        const prompt = `Você é um assistente que extrai informações de prospects de texto não estruturado.
+
+Analise o texto abaixo e extraia as informações relevantes para os seguintes campos:
+
+${fieldDescriptions}
+
+Texto para analisar:
+"""
+${text}
+"""
+
+IMPORTANTE:
+- Retorne APENAS um objeto JSON válido, sem texto adicional
+- Use os IDs dos campos como chaves (ex: "nome", "telefone", etc)
+- Se não encontrar informação para um campo, use string vazia ""
+- Para campos de seleção, use EXATAMENTE uma das opções fornecidas
+- Seja preciso e extraia apenas informações que realmente existem no texto
+- Normalize telefones para formato brasileiro se possível
+- Normalize Instagram removendo @ se houver
+
+Formato de resposta (JSON válido):
+{
+  "campo1": "valor extraído",
+  "campo2": "valor extraído"
+}`;
+
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let aiText = response.text();
+
+        // Limpar markdown code blocks se houver
+        aiText = aiText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        // Parsear resposta JSON
+        const extractedData = JSON.parse(aiText);
+
+        res.json({
+            success: true,
+            data: extractedData
+        });
+
+    } catch (error) {
+        console.error('Erro ao processar com IA:', error);
+        res.status(500).json({
+            error: 'Erro ao processar texto com IA',
+            details: error.message
+        });
     }
 });
 

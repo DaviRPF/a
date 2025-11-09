@@ -49,7 +49,48 @@ npm start
 
 **Passo 3:** Acessar em `http://localhost:3000`
 
+### 4. Configurar IA (Opcional - mas recomendado!)
+
+Para usar o recurso de **preenchimento automático com IA**, configure a API do Google Gemini:
+
+**Passo 1:** Obtenha sua chave de API gratuita:
+- Acesse: https://makersuite.google.com/app/apikey
+- Faça login com sua conta Google
+- Clique em "Create API Key"
+- Copie a chave gerada
+
+**Passo 2:** Crie um arquivo `.env` na raiz do projeto:
+```bash
+cp .env.example .env
+```
+
+**Passo 3:** Edite o arquivo `.env` e adicione sua chave:
+```
+GEMINI_API_KEY=sua_chave_api_aqui
+```
+
+**Passo 4:** Reinicie o servidor para aplicar as mudanças
+
 ## 📝 Funcionalidades
+
+### 🤖 Preencher com IA (NOVO!)
+
+O recurso mais poderoso da aplicação! Permite preencher automaticamente os campos do prospect usando inteligência artificial:
+
+1. Clique no botão **"🤖 Preencher com IA"** acima do formulário
+2. Cole ou digite qualquer texto com informações do prospect (pode ser uma mensagem, anotações, conversa do WhatsApp, etc.)
+3. Clique em **"Processar com IA"**
+4. A IA do Gemini irá extrair automaticamente as informações e preencher os campos!
+
+**Exemplo de texto que você pode colar:**
+```
+Pizzaria do João
+Tel: (11) 98765-4321
+Instagram: @pizzariadojoao
+Eles têm presença nas redes sociais e querem aumentar as vendas
+```
+
+A IA entende contexto e extrai informações mesmo de textos não estruturados! ✨
 
 ### Adicionar Prospect
 1. Preencha o formulário com as informações do prospect:
