@@ -25,6 +25,26 @@
 .subtitle {
   color: var(--gray);
   font-size: 1.1rem;
+  margin-bottom: 15px;
+}
+
+.btn-config {
+  background: white;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.btn-config:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-lg);
 }
 
 .container {

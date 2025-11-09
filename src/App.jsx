@@ -2,20 +2,27 @@ import { useState, useEffect } from 'react'
 import ProspectForm from './components/ProspectForm'
 import ProspectList from './components/ProspectList'
 import StatusFilter from './components/StatusFilter'
+import FieldsManager from './components/FieldsManager'
 import Toast from './components/Toast'
-import { fetchProspects, createProspect, updateProspect, deleteProspect } from './services/api'
+import {
+  fetchProspects, createProspect, updateProspect, deleteProspect,
+  fetchFields, createField, updateField, deleteField
+} from './services/api'
 import './styles/App.css'
 
 function App() {
   const [prospects, setProspects] = useState([])
   const [filteredProspects, setFilteredProspects] = useState([])
+  const [fields, setFields] = useState([])
   const [statusFilter, setStatusFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState(null)
+  const [showFieldsManager, setShowFieldsManager] = useState(false)
 
-  // Carregar prospects ao montar o componente
+  // Carregar prospects e campos ao montar o componente
   useEffect(() => {
     loadProspects()
+    loadFields()
   }, [])
 
   // Filtrar prospects quando o filtro ou lista mudar
@@ -36,6 +43,15 @@ function App() {
       showToast('Erro ao carregar prospects', 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadFields = async () => {
+    try {
+      const data = await fetchFields()
+      setFields(data)
+    } catch (error) {
+      showToast('Erro ao carregar campos', 'error')
     }
   }
 
@@ -75,6 +91,37 @@ function App() {
     }
   }
 
+  // Funções de gerenciamento de campos
+  const handleAddField = async (fieldData) => {
+    try {
+      const newField = await createField(fieldData)
+      setFields(prev => [...prev, newField])
+      showToast('Campo adicionado com sucesso!', 'success')
+    } catch (error) {
+      showToast('Erro ao adicionar campo', 'error')
+    }
+  }
+
+  const handleUpdateField = async (id, updates) => {
+    try {
+      const updatedField = await updateField(id, updates)
+      setFields(prev => prev.map(f => f.id === id ? updatedField : f))
+      showToast('Campo atualizado!', 'success')
+    } catch (error) {
+      showToast('Erro ao atualizar campo', 'error')
+    }
+  }
+
+  const handleDeleteField = async (id) => {
+    try {
+      await deleteField(id)
+      setFields(prev => prev.filter(f => f.id !== id))
+      showToast('Campo removido!', 'success')
+    } catch (error) {
+      showToast('Erro ao remover campo', 'error')
+    }
+  }
+
   const showToast = (message, type) => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
@@ -85,12 +132,29 @@ function App() {
       <header className="app-header">
         <h1>📋 Organizador de Prospects</h1>
         <p className="subtitle">Gerencie seus prospects de forma profissional</p>
+        <button
+          className="btn-config"
+          onClick={() => setShowFieldsManager(!showFieldsManager)}
+        >
+          ⚙️ {showFieldsManager ? 'Ocultar' : 'Gerenciar'} Campos
+        </button>
       </header>
 
       <div className="container">
+        {showFieldsManager && (
+          <section className="section">
+            <FieldsManager
+              fields={fields}
+              onAddField={handleAddField}
+              onUpdateField={handleUpdateField}
+              onDeleteField={handleDeleteField}
+            />
+          </section>
+        )}
+
         <section className="section">
           <h2 className="section-title">Adicionar Novo Prospect</h2>
-          <ProspectForm onSubmit={handleAddProspect} />
+          <ProspectForm onSubmit={handleAddProspect} fields={fields} />
         </section>
 
         <section className="section">
@@ -104,6 +168,7 @@ function App() {
 
           <ProspectList
             prospects={filteredProspects}
+            fields={fields}
             loading={loading}
             onUpdateStatus={handleUpdateStatus}
             onDelete={handleDeleteProspect}

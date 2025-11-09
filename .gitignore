@@ -9,6 +9,7 @@ build/
 
 # Data files
 prospects.json
+fields-config.json
 
 # Environment variables
 .env

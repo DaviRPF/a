@@ -1,0 +1,238 @@
+.fields-manager {
+  background: var(--light);
+  padding: 25px;
+  border-radius: 12px;
+  border: 2px dashed var(--border);
+  margin-bottom: 20px;
+}
+
+.manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.manager-header h3 {
+  font-size: 1.3rem;
+  color: var(--dark);
+  margin: 0;
+}
+
+.btn-add-field {
+  background: var(--gradient);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-add-field:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-lg);
+}
+
+.field-form {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px var(--shadow);
+  animation: slideDown 0.3s ease-out;
+}
+
+.field-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.field-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-form .full-width {
+  grid-column: 1 / -1;
+}
+
+.checkbox-group {
+  justify-content: center;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.field-form label {
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.field-form input,
+.field-form select {
+  padding: 10px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: border-color 0.3s ease;
+}
+
+.field-form input:focus,
+.field-form select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.btn-submit-field {
+  background: var(--success);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.btn-submit-field:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+}
+
+.field-item:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.field-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.field-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.field-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-label {
+  font-weight: 600;
+  color: var(--dark);
+  font-size: 1rem;
+}
+
+.field-meta {
+  font-size: 0.85rem;
+  color: var(--gray);
+}
+
+.field-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-edit,
+.btn-delete-field {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-edit:hover {
+  background: var(--info);
+  transform: scale(1.1);
+}
+
+.btn-delete-field:hover {
+  background: var(--danger);
+  transform: scale(1.1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .fields-manager {
+    padding: 15px;
+  }
+
+  .manager-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-add-field {
+    width: 100%;
+  }
+
+  .field-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .field-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

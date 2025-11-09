@@ -1,7 +1,7 @@
 import ProspectCard from './ProspectCard'
 import '../styles/ProspectList.css'
 
-const ProspectList = ({ prospects, loading, onUpdateStatus, onDelete }) => {
+const ProspectList = ({ prospects, fields = [], loading, onUpdateStatus, onDelete }) => {
   if (loading) {
     return (
       <div className="loading-container">
@@ -35,6 +35,7 @@ const ProspectList = ({ prospects, loading, onUpdateStatus, onDelete }) => {
           <ProspectCard
             key={prospect.id}
             prospect={prospect}
+            fields={fields}
             onUpdateStatus={onUpdateStatus}
             onDelete={onDelete}
           />

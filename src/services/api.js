@@ -29,4 +29,26 @@ export const deleteProspect = async (id) => {
   return response.data
 }
 
+// ============= API de Campos =============
+
+export const fetchFields = async () => {
+  const response = await api.get('/fields')
+  return response.data
+}
+
+export const createField = async (fieldData) => {
+  const response = await api.post('/fields', fieldData)
+  return response.data
+}
+
+export const updateField = async (id, updates) => {
+  const response = await api.put(`/fields/${id}`, updates)
+  return response.data
+}
+
+export const deleteField = async (id) => {
+  const response = await api.delete(`/fields/${id}`)
+  return response.data
+}
+
 export default api

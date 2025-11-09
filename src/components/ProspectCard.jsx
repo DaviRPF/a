@@ -21,7 +21,7 @@ const STATUS_COLORS = {
   'Objeção do decisor': '#e74c3c'
 }
 
-const ProspectCard = ({ prospect, onUpdateStatus, onDelete }) => {
+const ProspectCard = ({ prospect, fields = [], onUpdateStatus, onDelete }) => {
   const [isUpdating, setIsUpdating] = useState(false)
 
   const handleStatusChange = async (e) => {
@@ -41,11 +41,15 @@ const ProspectCard = ({ prospect, onUpdateStatus, onDelete }) => {
     })
   }
 
+  // Pegar o primeiro campo como título (geralmente "nome")
+  const titleField = fields[0]
+  const titleValue = titleField ? prospect[titleField.id] : 'Prospect'
+
   return (
     <div className="prospect-card">
       <div className="prospect-header">
         <div>
-          <h3 className="prospect-name">{prospect.nome}</h3>
+          <h3 className="prospect-name">{titleValue}</h3>
           <span className="prospect-date">
             📅 Criado em {formatDate(prospect.criadoEm)}
           </span>
@@ -60,43 +64,25 @@ const ProspectCard = ({ prospect, onUpdateStatus, onDelete }) => {
       </div>
 
       <div className="prospect-info">
-        <div className="info-item">
-          <span className="info-icon">📞</span>
-          <div>
-            <span className="info-label">Telefone</span>
-            <span className="info-value">{prospect.telefone}</span>
-          </div>
-        </div>
+        {fields.map((field) => {
+          const value = prospect[field.id]
 
-        {prospect.instagram && (
-          <div className="info-item">
-            <span className="info-icon">📱</span>
-            <div>
-              <span className="info-label">Instagram</span>
-              <span className="info-value">{prospect.instagram}</span>
+          // Não mostrar o primeiro campo novamente (já está no título)
+          if (field === titleField) return null
+
+          // Não mostrar campos vazios
+          if (!value) return null
+
+          return (
+            <div key={field.id} className="info-item">
+              <span className="info-icon">{field.icon || '📝'}</span>
+              <div>
+                <span className="info-label">{field.label}</span>
+                <span className="info-value">{value}</span>
+              </div>
             </div>
-          </div>
-        )}
-
-        {prospect.googleMeuNegocio && (
-          <div className="info-item">
-            <span className="info-icon">🌐</span>
-            <div>
-              <span className="info-label">Google Meu Negócio</span>
-              <span className="info-value">{prospect.googleMeuNegocio}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="info-item">
-          <span className="info-icon">👥</span>
-          <div>
-            <span className="info-label">Presença na Rede Social</span>
-            <span className={`badge ${prospect.presencaRedeSocial === 'Sim' ? 'badge-success' : 'badge-danger'}`}>
-              {prospect.presencaRedeSocial}
-            </span>
-          </div>
-        </div>
+          )
+        })}
       </div>
 
       <div className="prospect-status">
