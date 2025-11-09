@@ -452,7 +452,8 @@ app.post('/api/automation/save-session', async (req, res) => {
 
 // Buscar prospects automaticamente com SSE
 app.get('/api/automation/search', async (req, res) => {
-    const { businessType, city } = req.query;
+    const { businessType, city, limit } = req.query;
+    const maxProfiles = parseInt(limit) || 10;
 
     // Configurar SSE
     res.setHeader('Content-Type', 'text/event-stream');
@@ -467,7 +468,7 @@ app.get('/api/automation/search', async (req, res) => {
         sendEvent({ type: 'status', message: 'Iniciando busca no Google...' });
 
         // Buscar no Google
-        const instagramProfiles = await automation.searchGoogleForInstagram(businessType, city);
+        const instagramProfiles = await automation.searchGoogleForInstagram(businessType, city, maxProfiles);
 
         sendEvent({
             type: 'status',

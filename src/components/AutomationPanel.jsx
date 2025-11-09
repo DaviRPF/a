@@ -10,6 +10,7 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   const [customBusinessType, setCustomBusinessType] = useState('')
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [city, setCity] = useState('')
+  const [limit, setLimit] = useState(10)
   const [isSearching, setIsSearching] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [statusMessage, setStatusMessage] = useState('')
@@ -160,7 +161,7 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
 
     // Conectar ao SSE
     const es = new EventSource(
-      `/api/automation/search?businessType=${encodeURIComponent(typeToUse)}&city=${encodeURIComponent(city)}`
+      `/api/automation/search?businessType=${encodeURIComponent(typeToUse)}&city=${encodeURIComponent(city)}&limit=${limit}`
     )
 
     setEventSource(es)
@@ -324,6 +325,19 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
                   disabled={isSearching}
                 />
               </div>
+              <div className="form-group">
+                <label>Quantidade de estabelecimentos</label>
+                <input
+                  type="number"
+                  value={limit}
+                  onChange={(e) => setLimit(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                  placeholder="Ex: 10"
+                  min="1"
+                  max="50"
+                  disabled={isSearching}
+                />
+                <small style={{ color: '#666', fontSize: '12px' }}>Máximo: 50 estabelecimentos</small>
+              </div>
               <button
                 className="btn-search"
                 onClick={handleSearch}
@@ -391,7 +405,19 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
                           prospect.data[field.id] && (
                             <div key={field.id} className="preview-field">
                               <span className="field-label">{field.icon} {field.label}:</span>
-                              <span className="field-value">{prospect.data[field.id]}</span>
+                              {field.id === 'instagram' ? (
+                                <a
+                                  href={`https://www.instagram.com/${prospect.data[field.id].replace('@', '')}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="field-value instagram-link"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {prospect.data[field.id]}
+                                </a>
+                              ) : (
+                                <span className="field-value">{prospect.data[field.id]}</span>
+                              )}
                             </div>
                           )
                         ))}

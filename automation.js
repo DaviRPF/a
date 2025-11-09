@@ -194,7 +194,7 @@ export async function saveSession() {
 }
 
 // Função para buscar no Google com resolução automática de captcha
-export async function searchGoogleForInstagram(businessType, city) {
+export async function searchGoogleForInstagram(businessType, city, limit = 10) {
     try {
         const browser = await initBrowser();
 
@@ -364,7 +364,8 @@ export async function searchGoogleForInstagram(businessType, city) {
             console.log('📋 Perfis encontrados:', instagramLinks.map(l => l.username).join(', '));
         }
 
-        return instagramLinks.slice(0, 10);
+        console.log(`📊 Retornando ${Math.min(limit, instagramLinks.length)} de ${instagramLinks.length} perfis encontrados`);
+        return instagramLinks.slice(0, limit);
     } catch (error) {
         console.error('Erro na busca:', error);
         return [];
