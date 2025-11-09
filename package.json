@@ -18,7 +18,10 @@
     "react-dom": "^18.2.0",
     "axios": "^1.6.0",
     "@google/generative-ai": "^0.21.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "puppeteer": "^23.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

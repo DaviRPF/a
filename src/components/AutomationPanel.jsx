@@ -1,0 +1,290 @@
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+import '../styles/AutomationPanel.css'
+
+const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [businessType, setBusinessType] = useState('')
+  const [city, setCity] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [progress, setProgress] = useState({ current: 0, total: 0 })
+  const [statusMessage, setStatusMessage] = useState('')
+  const [foundProspects, setFoundProspects] = useState([])
+  const [eventSource, setEventSource] = useState(null)
+
+  // Verificar status de login ao abrir
+  useEffect(() => {
+    if (isOpen) {
+      checkLoginStatus()
+    }
+
+    return () => {
+      if (eventSource) {
+        eventSource.close()
+      }
+    }
+  }, [isOpen])
+
+  const checkLoginStatus = async () => {
+    try {
+      const response = await axios.get('/api/automation/status')
+      setIsLoggedIn(response.data.loggedIn)
+    } catch (error) {
+      console.error('Erro ao verificar login:', error)
+    }
+  }
+
+  const handleLogin = async () => {
+    try {
+      setStatusMessage('Abrindo navegador para login...')
+      const response = await axios.post('/api/automation/login')
+
+      if (response.data.success) {
+        setStatusMessage('Faça login no navegador que abriu e depois feche esta mensagem.')
+        // Verificar status após alguns segundos
+        setTimeout(() => {
+          checkLoginStatus()
+          setStatusMessage('')
+        }, 5000)
+      }
+    } catch (error) {
+      setStatusMessage(`Erro: ${error.message}`)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!businessType || !city) {
+      alert('Preencha o tipo de estabelecimento e a cidade')
+      return
+    }
+
+    setIsSearching(true)
+    setFoundProspects([])
+    setProgress({ current: 0, total: 0 })
+    setStatusMessage('Iniciando busca...')
+
+    // Conectar ao SSE
+    const es = new EventSource(
+      `/api/automation/search?businessType=${encodeURIComponent(businessType)}&city=${encodeURIComponent(city)}`
+    )
+
+    setEventSource(es)
+
+    es.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+
+      switch (data.type) {
+        case 'status':
+          setStatusMessage(data.message)
+          break
+
+        case 'progress':
+          setProgress({ current: data.current, total: data.total })
+          setStatusMessage(data.message)
+          break
+
+        case 'prospect_found':
+          setFoundProspects(prev => [...prev, data.prospect])
+          break
+
+        case 'error':
+          setStatusMessage(`Erro: ${data.message}`)
+          break
+
+        case 'complete':
+          setStatusMessage(data.message)
+          setIsSearching(false)
+          es.close()
+          break
+      }
+    }
+
+    es.onerror = () => {
+      setStatusMessage('Erro na conexão')
+      setIsSearching(false)
+      es.close()
+    }
+  }
+
+  const handleToggleApprove = (id) => {
+    setFoundProspects(prev =>
+      prev.map(p =>
+        p.id === id ? { ...p, approved: !p.approved } : p
+      )
+    )
+  }
+
+  const handleSaveApproved = async () => {
+    const approvedProspects = foundProspects.filter(p => p.approved)
+
+    if (approvedProspects.length === 0) {
+      alert('Nenhum prospect aprovado')
+      return
+    }
+
+    // Enviar prospects aprovados para serem adicionados
+    onApproveProspects(approvedProspects.map(p => p.data))
+
+    // Limpar e fechar
+    setFoundProspects([])
+    setBusinessType('')
+    setCity('')
+    setStatusMessage(`${approvedProspects.length} prospects adicionados com sucesso!`)
+
+    setTimeout(() => {
+      setStatusMessage('')
+      onClose()
+    }, 2000)
+  }
+
+  const handleCloseBrowser = async () => {
+    try {
+      await axios.post('/api/automation/close')
+      setStatusMessage('Navegador fechado')
+    } catch (error) {
+      console.error('Erro ao fechar navegador:', error)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="automation-overlay" onClick={onClose}>
+      <div className="automation-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="automation-header">
+          <h2>🤖 Geração Automática de Prospects</h2>
+          <button className="btn-close-automation" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="automation-body">
+          {/* Status de Login */}
+          <div className="login-section">
+            <div className="login-status">
+              <span className={`status-indicator ${isLoggedIn ? 'logged-in' : 'logged-out'}`}>
+                {isLoggedIn ? '🟢' : '🔴'}
+              </span>
+              <span>
+                {isLoggedIn ? 'Instagram conectado' : 'Instagram desconectado'}
+              </span>
+            </div>
+            {!isLoggedIn && (
+              <button className="btn-login" onClick={handleLogin}>
+                🔓 Fazer Login no Instagram
+              </button>
+            )}
+            <button className="btn-close-browser" onClick={handleCloseBrowser}>
+              🚫 Fechar Navegador
+            </button>
+          </div>
+
+          {/* Formulário de Busca */}
+          <div className="search-section">
+            <h3>Buscar Prospects</h3>
+            <div className="search-form">
+              <div className="form-group">
+                <label>Tipo de Estabelecimento</label>
+                <input
+                  type="text"
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value)}
+                  placeholder="Ex: Pizzaria, Restaurante, Cafeteria"
+                  disabled={isSearching}
+                />
+              </div>
+              <div className="form-group">
+                <label>Cidade</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Ex: São Paulo, Rio de Janeiro"
+                  disabled={isSearching}
+                />
+              </div>
+              <button
+                className="btn-search"
+                onClick={handleSearch}
+                disabled={isSearching || !isLoggedIn}
+              >
+                {isSearching ? '⏳ Buscando...' : '🔍 Buscar no Instagram'}
+              </button>
+            </div>
+          </div>
+
+          {/* Progresso */}
+          {isSearching && progress.total > 0 && (
+            <div className="progress-section">
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                />
+              </div>
+              <p className="progress-text">
+                {progress.current} de {progress.total} perfis processados
+              </p>
+            </div>
+          )}
+
+          {/* Status Message */}
+          {statusMessage && (
+            <div className="status-message">
+              {statusMessage}
+            </div>
+          )}
+
+          {/* Lista de Prospects Encontrados */}
+          {foundProspects.length > 0 && (
+            <div className="prospects-section">
+              <div className="prospects-header">
+                <h3>Prospects Encontrados ({foundProspects.length})</h3>
+                <button className="btn-save-approved" onClick={handleSaveApproved}>
+                  💾 Salvar Aprovados ({foundProspects.filter(p => p.approved).length})
+                </button>
+              </div>
+
+              <div className="prospects-list">
+                {foundProspects.map(prospect => {
+                  const firstField = fields[0]
+                  const title = firstField ? prospect.data[firstField.id] : 'Prospect'
+
+                  return (
+                    <div
+                      key={prospect.id}
+                      className={`prospect-preview ${prospect.approved ? 'approved' : ''}`}
+                    >
+                      <div className="prospect-preview-header">
+                        <h4>{title}</h4>
+                        <button
+                          className={`btn-toggle-approve ${prospect.approved ? 'approved' : ''}`}
+                          onClick={() => handleToggleApprove(prospect.id)}
+                        >
+                          {prospect.approved ? '✓ Aprovado' : '○ Aprovar'}
+                        </button>
+                      </div>
+
+                      <div className="prospect-preview-data">
+                        {fields.slice(0, 4).map(field => (
+                          prospect.data[field.id] && (
+                            <div key={field.id} className="preview-field">
+                              <span className="field-label">{field.icon} {field.label}:</span>
+                              <span className="field-value">{prospect.data[field.id]}</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default AutomationPanel

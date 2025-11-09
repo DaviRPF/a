@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as automation from './automation.js';
 
 dotenv.config();
 
@@ -288,6 +289,187 @@ Formato de resposta (JSON válido):
             error: 'Erro ao processar texto com IA',
             details: error.message
         });
+    }
+});
+
+// ============= ROTAS DE AUTOMAÇÃO =============
+
+// Verificar status de login no Instagram
+app.get('/api/automation/status', async (req, res) => {
+    try {
+        const status = await automation.checkLoginStatus();
+        res.json(status);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Abrir navegador para login manual
+app.post('/api/automation/login', async (req, res) => {
+    try {
+        const result = await automation.loginInstagram();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Buscar prospects automaticamente com SSE
+app.get('/api/automation/search', async (req, res) => {
+    const { businessType, city } = req.query;
+
+    // Configurar SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const sendEvent = (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+        sendEvent({ type: 'status', message: 'Iniciando busca no Google...' });
+
+        // Buscar no Google
+        const instagramProfiles = await automation.searchGoogleForInstagram(businessType, city);
+
+        sendEvent({
+            type: 'status',
+            message: `Encontrados ${instagramProfiles.length} perfis. Extraindo dados...`
+        });
+
+        const fields = readFieldsConfig();
+        const extractedProspects = [];
+
+        // Processar cada perfil
+        for (let i = 0; i < instagramProfiles.length; i++) {
+            const profile = instagramProfiles[i];
+
+            sendEvent({
+                type: 'progress',
+                current: i + 1,
+                total: instagramProfiles.length,
+                message: `Extraindo dados de @${profile.username}...`
+            });
+
+            try {
+                // Extrair dados do perfil
+                const rawData = await automation.extractInstagramData(profile.username);
+
+                if (rawData) {
+                    // Usar IA para estruturar os dados
+                    if (genAI) {
+                        const fieldDescriptions = fields.map(f =>
+                            `- ${f.id}: ${f.label} (tipo: ${f.type}${f.options ? ', opções: ' + f.options.join(', ') : ''})`
+                        ).join('\n');
+
+                        const prompt = `Extraia informações deste perfil do Instagram para os seguintes campos:
+
+${fieldDescriptions}
+
+Dados do perfil:
+Nome: ${rawData.name}
+Instagram: @${rawData.instagram}
+Bio: ${rawData.bio}
+Telefone encontrado: ${rawData.phone}
+
+IMPORTANTE:
+- Retorne APENAS JSON válido
+- Use os IDs dos campos como chaves
+- Para "instagram", use apenas o username sem @
+- Para "presencaRedeSocial" ou similar, use "Sim" (está no Instagram)
+- Se não encontrar info, use string vazia
+
+JSON:`;
+
+                        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+                        const result = await model.generateContent(prompt);
+                        const response = await result.response;
+                        let aiText = response.text();
+
+                        aiText = aiText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+                        try {
+                            const structuredData = JSON.parse(aiText);
+                            extractedProspects.push({
+                                id: Date.now().toString() + '-' + i,
+                                data: structuredData,
+                                rawData: rawData,
+                                approved: false
+                            });
+
+                            sendEvent({
+                                type: 'prospect_found',
+                                prospect: {
+                                    id: Date.now().toString() + '-' + i,
+                                    data: structuredData,
+                                    approved: false
+                                }
+                            });
+                        } catch (e) {
+                            console.error('Erro ao parsear resposta da IA:', e);
+                        }
+                    } else {
+                        // Sem IA, usar dados brutos
+                        const simpleData = {};
+                        fields.forEach(field => {
+                            if (field.id === 'nome') simpleData[field.id] = rawData.name;
+                            else if (field.id === 'instagram') simpleData[field.id] = rawData.instagram;
+                            else if (field.id === 'telefone') simpleData[field.id] = rawData.phone;
+                            else if (field.id.includes('rede') || field.id.includes('social')) simpleData[field.id] = 'Sim';
+                            else simpleData[field.id] = '';
+                        });
+
+                        extractedProspects.push({
+                            id: Date.now().toString() + '-' + i,
+                            data: simpleData,
+                            rawData: rawData,
+                            approved: false
+                        });
+
+                        sendEvent({
+                            type: 'prospect_found',
+                            prospect: {
+                                id: Date.now().toString() + '-' + i,
+                                data: simpleData,
+                                approved: false
+                            }
+                        });
+                    }
+                }
+
+                // Delay para não sobrecarregar
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            } catch (error) {
+                console.error(`Erro ao processar ${profile.username}:`, error);
+                sendEvent({
+                    type: 'error',
+                    message: `Erro ao processar @${profile.username}: ${error.message}`
+                });
+            }
+        }
+
+        sendEvent({
+            type: 'complete',
+            message: `Busca concluída! ${extractedProspects.length} prospects encontrados.`,
+            totalFound: extractedProspects.length
+        });
+
+        res.end();
+    } catch (error) {
+        console.error('Erro na automação:', error);
+        sendEvent({ type: 'error', message: error.message });
+        res.end();
+    }
+});
+
+// Fechar navegador
+app.post('/api/automation/close', async (req, res) => {
+    try {
+        await automation.closeBrowser();
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

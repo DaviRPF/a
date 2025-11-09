@@ -10,6 +10,11 @@ build/
 # Data files
 prospects.json
 fields-config.json
+instagram-cookies.json
+
+# Puppeteer
+.local-chromium/
+.cache/puppeteer/
 
 # Environment variables
 .env

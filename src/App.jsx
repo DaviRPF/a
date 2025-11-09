@@ -3,6 +3,7 @@ import ProspectForm from './components/ProspectForm'
 import ProspectList from './components/ProspectList'
 import StatusFilter from './components/StatusFilter'
 import FieldsManager from './components/FieldsManager'
+import AutomationPanel from './components/AutomationPanel'
 import Toast from './components/Toast'
 import {
   fetchProspects, createProspect, updateProspect, deleteProspect,
@@ -18,6 +19,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState(null)
   const [showFieldsManager, setShowFieldsManager] = useState(false)
+  const [showAutomation, setShowAutomation] = useState(false)
 
   // Carregar prospects e campos ao montar o componente
   useEffect(() => {
@@ -122,6 +124,19 @@ function App() {
     }
   }
 
+  // Aprovar prospects em lote (vindo da automação)
+  const handleApproveProspects = async (prospectsData) => {
+    try {
+      for (const prospectData of prospectsData) {
+        const newProspect = await createProspect(prospectData)
+        setProspects(prev => [...prev, newProspect])
+      }
+      showToast(`${prospectsData.length} prospects adicionados!`, 'success')
+    } catch (error) {
+      showToast('Erro ao adicionar prospects', 'error')
+    }
+  }
+
   const showToast = (message, type) => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
@@ -132,12 +147,20 @@ function App() {
       <header className="app-header">
         <h1>📋 Organizador de Prospects</h1>
         <p className="subtitle">Gerencie seus prospects de forma profissional</p>
-        <button
-          className="btn-config"
-          onClick={() => setShowFieldsManager(!showFieldsManager)}
-        >
-          ⚙️ {showFieldsManager ? 'Ocultar' : 'Gerenciar'} Campos
-        </button>
+        <div className="header-buttons">
+          <button
+            className="btn-automation"
+            onClick={() => setShowAutomation(true)}
+          >
+            🤖 Geração Automática
+          </button>
+          <button
+            className="btn-config"
+            onClick={() => setShowFieldsManager(!showFieldsManager)}
+          >
+            ⚙️ {showFieldsManager ? 'Ocultar' : 'Gerenciar'} Campos
+          </button>
+        </div>
       </header>
 
       <div className="container">
@@ -175,6 +198,13 @@ function App() {
           />
         </section>
       </div>
+
+      <AutomationPanel
+        isOpen={showAutomation}
+        onClose={() => setShowAutomation(false)}
+        fields={fields}
+        onApproveProspects={handleApproveProspects}
+      />
 
       {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
