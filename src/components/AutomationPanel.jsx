@@ -4,6 +4,7 @@ import '../styles/AutomationPanel.css'
 
 const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isCheckingLogin, setIsCheckingLogin] = useState(false)
   const [businessTypes, setBusinessTypes] = useState([])
   const [businessType, setBusinessType] = useState('')
   const [customBusinessType, setCustomBusinessType] = useState('')
@@ -31,10 +32,23 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
 
   const checkLoginStatus = async () => {
     try {
+      setIsCheckingLogin(true)
+      setStatusMessage('Verificando login no Instagram...')
+
       const response = await axios.get('/api/automation/status')
       setIsLoggedIn(response.data.loggedIn)
+
+      if (response.data.loggedIn) {
+        setStatusMessage('✅ Você está logado no Instagram!')
+        setTimeout(() => setStatusMessage(''), 3000)
+      } else {
+        setStatusMessage('')
+      }
     } catch (error) {
       console.error('Erro ao verificar login:', error)
+      setStatusMessage('')
+    } finally {
+      setIsCheckingLogin(false)
     }
   }
 
@@ -243,25 +257,25 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
           {/* Status de Login */}
           <div className="login-section">
             <div className="login-status">
-              <span className={`status-indicator ${isLoggedIn ? 'logged-in' : 'logged-out'}`}>
-                {isLoggedIn ? '🟢' : '🔴'}
+              <span className={`status-indicator ${isCheckingLogin ? 'checking' : isLoggedIn ? 'logged-in' : 'logged-out'}`}>
+                {isCheckingLogin ? '🔄' : isLoggedIn ? '🟢' : '🔴'}
               </span>
               <span>
-                {isLoggedIn ? 'Instagram conectado' : 'Instagram desconectado'}
+                {isCheckingLogin ? 'Verificando...' : isLoggedIn ? 'Instagram conectado' : 'Instagram desconectado'}
               </span>
             </div>
             <div className="login-buttons">
-              {!isLoggedIn && (
+              {!isLoggedIn && !isCheckingLogin && (
                 <button className="btn-login" onClick={handleLogin}>
                   🔓 Fazer Login no Instagram
                 </button>
               )}
-              {!isLoggedIn && (
+              {!isLoggedIn && !isCheckingLogin && (
                 <button className="btn-save-session" onClick={handleSaveSession}>
                   💾 Salvar Sessão
                 </button>
               )}
-              <button className="btn-close-browser" onClick={handleCloseBrowser}>
+              <button className="btn-close-browser" onClick={handleCloseBrowser} disabled={isCheckingLogin}>
                 🚫 Fechar Navegador
               </button>
             </div>
