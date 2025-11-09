@@ -1,0 +1,13 @@
+{
+  "name": "prospect-organizer",
+  "version": "1.0.0",
+  "description": "Aplicação para organizar prospects e seus status de contato",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2"
+  }
+}
