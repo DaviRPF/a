@@ -216,6 +216,16 @@ export async function searchGoogleForInstagram(businessType, city) {
         if (process.env.TWOCAPTCHA_TOKEN && page.solveRecaptchas) {
             try {
                 console.log('🤖 Tentando resolver captcha automaticamente com 2captcha...');
+
+                // Configurar listener para navegação antes de resolver o captcha
+                const navigationPromise = page.waitForNavigation({
+                    waitUntil: 'networkidle2',
+                    timeout: 120000
+                }).catch(() => {
+                    console.log('⏳ Timeout na espera de navegação (pode ser normal se não houve navegação)');
+                    return null;
+                });
+
                 const result = await page.solveRecaptchas();
 
                 console.log('🔍 Debug - Resultado do solveRecaptchas:', JSON.stringify({
@@ -227,9 +237,11 @@ export async function searchGoogleForInstagram(businessType, city) {
 
                 if (result.solved && result.solved.length > 0) {
                     console.log(`✅ Captcha resolvido automaticamente! ${result.solved.length} captcha(s)`);
-                    // Aguardar a página recarregar após resolver o captcha
-                    console.log('⏳ Aguardando 5 segundos para a página carregar após resolver captcha...');
-                    await delay(5000);
+                    // Aguardar a navegação completar após resolver o captcha
+                    console.log('⏳ Aguardando navegação após resolver captcha...');
+                    await navigationPromise;
+                    console.log('✅ Navegação completada, aguardando estabilização...');
+                    await delay(3000);
                 } else {
                     console.log('ℹ️ Nenhum captcha encontrado na página ou já estava resolvido');
                 }
