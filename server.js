@@ -633,8 +633,13 @@ app.post('/api/automation/enhance', async (req, res) => {
                 });
 
                 try {
-                    // Aperfeiçoar dados
-                    const enhancement = await automation.enhanceProspectData(prospect);
+                    // Aperfeiçoar dados com IA
+                    if (!genAI) {
+                        throw new Error('Gemini AI não configurado. Configure GEMINI_API_KEY no .env');
+                    }
+
+                    const settings = readSettings();
+                    const enhancement = await automation.enhanceProspectData(prospect, genAI, settings.geminiModel);
 
                     sendToAllClients({
                         type: 'prospect_enhanced',

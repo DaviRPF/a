@@ -179,6 +179,24 @@
   text-align: right;
 }
 
+.enhanced-field {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+  border-left: 3px solid #f59e0b;
+}
+
+.enhancement-link {
+  color: #f59e0b;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.enhancement-link:hover {
+  color: #d97706;
+  text-decoration: underline;
+}
+
 .progress-section {
   background: var(--bg-secondary);
   padding: 20px;

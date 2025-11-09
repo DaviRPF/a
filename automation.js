@@ -522,8 +522,8 @@ export async function checkLoginStatus() {
 
 // ============= FUNÇÕES DE APERFEIÇOAMENTO DE DADOS =============
 
-// Função para buscar CNPJ na Econodata
-export async function searchEconodata(companyName, city) {
+// Função para buscar dados empresariais via Google + IA  
+async function searchWithAI(companyName, city, searchTerm, genAI, geminiModel) {
     try {
         const browser = await initBrowser();
 
@@ -531,105 +531,217 @@ export async function searchEconodata(companyName, city) {
             page = await browser.newPage();
         }
 
-        const searchQuery = `${companyName} ${city}`;
-        const url = `https://www.econodata.com.br/busca?q=${encodeURIComponent(searchQuery)}`;
+        const searchQuery = `${companyName} ${city} ${searchTerm}`;
+        const url = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
 
-        console.log(`🔍 Buscando na Econodata: ${searchQuery}`);
+        console.log(`🔍 Buscando no Google: ${searchQuery}`);
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await delay(2000);
+        await delay(3000);
 
-        // Extrair informações da primeira empresa encontrada
-        const data = await page.evaluate(() => {
-            // Procurar pelo primeiro resultado
-            const firstResult = document.querySelector('.empresa-item, .result-item, [class*="company"]');
+        // Capturar HTML dos resultados
+        const resultsHTML = await page.evaluate(() => {
+            const results = [];
+            const searchResults = document.querySelectorAll('.g, [class*="result"]');
 
-            if (!firstResult) return null;
+            searchResults.forEach((result, idx) => {
+                if (idx < 10) {
+                    const link = result.querySelector('a');
+                    const title = result.querySelector('h3');
+                    const snippet = result.querySelector('[class*="VwiC3b"], .s, [data-sncf]');
 
-            // Tentar encontrar CNPJ
-            const cnpjElement = firstResult.querySelector('[class*="cnpj"], .cnpj');
-            const cnpj = cnpjElement?.textContent?.trim().match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/)?.[0];
+                    if (link && title) {
+                        results.push({
+                            index: idx,
+                            url: link.href,
+                            title: title.textContent,
+                            snippet: snippet?.textContent || ''
+                        });
+                    }
+                }
+            });
 
-            if (!cnpj) return null;
-
-            // Link para página detalhada
-            const link = firstResult.querySelector('a')?.href;
-
-            return { cnpj, detailUrl: link };
+            return results;
         });
 
-        if (!data || !data.cnpj) {
-            console.log('⚠️ CNPJ não encontrado na Econodata');
+        console.log(`📄 Encontrados ${resultsHTML.length} resultados`);
+
+        if (resultsHTML.length === 0) {
+            console.log('⚠️ Nenhum resultado encontrado');
             return null;
         }
 
-        console.log(`✅ CNPJ encontrado na Econodata: ${data.cnpj}`);
+        // Usar IA para escolher o link mais relevante
+        const model = genAI.getGenerativeModel({ model: geminiModel });
+        const prompt = `Você é um assistente que analisa resultados de busca do Google.
 
-        // Se tiver URL detalhada, buscar mais informações
-        if (data.detailUrl) {
-            await page.goto(data.detailUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-            await delay(2000);
+Empresa: ${companyName}
+Cidade: ${city}
+Termo de busca: ${searchTerm}
 
-            const details = await page.evaluate(() => {
-                const extractText = (selector) => {
-                    const el = document.querySelector(selector);
-                    return el?.textContent?.trim() || '';
-                };
+Resultados do Google:
+${resultsHTML.map(r => `[${r.index}] ${r.title}\nURL: ${r.url}\nSnippet: ${r.snippet}`).join('\n\n')}
 
-                return {
-                    capitalSocial: extractText('[class*="capital"], .capital-social'),
-                    porte: extractText('[class*="porte"], .porte'),
-                    socios: extractText('[class*="socios"], .socios, [class*="admin"]')
-                };
-            });
+TAREFA: Escolha o resultado mais relevante que seja ESPECIFICAMENTE sobre a empresa "${companyName}" em "${city}".
 
-            return { ...data, ...details };
+IMPORTANTE:
+- O resultado DEVE ser sobre a empresa exata, não empresas similares
+- Prefira sites oficiais como Econodata, CNPJBiz, Jucesp
+- Se nenhum resultado for sobre a empresa correta, retorne "NENHUM"
+
+Retorne APENAS o número do índice [0-9] do melhor resultado, ou "NENHUM" se não encontrar.`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const aiChoice = response.text().trim();
+
+        console.log(`🤖 IA escolheu: ${aiChoice}`);
+
+        if (aiChoice === 'NENHUM' || isNaN(aiChoice)) {
+            console.log('⚠️ IA não encontrou resultado relevante');
+            return null;
         }
 
+        const chosenIndex = parseInt(aiChoice);
+        if (chosenIndex < 0 || chosenIndex >= resultsHTML.length) {
+            console.log('⚠️ Índice inválido escolhido pela IA');
+            return null;
+        }
+
+        const chosenResult = resultsHTML[chosenIndex];
+        console.log(`✅ Acessando: ${chosenResult.title}`);
+        console.log(`🔗 URL: ${chosenResult.url}`);
+
+        // Navegar para a página escolhida
+        await page.goto(chosenResult.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await delay(3000);
+
+        return { url: chosenResult.url, page };
+    } catch (error) {
+        console.error('Erro na busca com IA:', error.message);
+        return null;
+    }
+}
+
+// Função para extrair informações usando IA
+async function extractWithAI(pageContent, companyName, genAI, geminiModel) {
+    try {
+        const model = genAI.getGenerativeModel({ model: geminiModel });
+        const prompt = `Você é um assistente que extrai informações empresariais de páginas web.
+
+Empresa: ${companyName}
+
+Conteúdo da página (texto):
+${pageContent.substring(0, 8000)}
+
+TAREFA: Extraia as seguintes informações se estiverem disponíveis:
+1. CNPJ (formato: XX.XXX.XXX/XXXX-XX)
+2. Capital Social (valor em reais)
+3. Porte da empresa (MEI, ME, EPP, Médio, Grande, etc)
+4. Sócios/Administradores (nomes)
+
+IMPORTANTE:
+- Se não encontrar alguma informação, deixe em branco
+- Retorne APENAS JSON válido
+- Não invente informações
+
+Formato de resposta:
+{
+  "cnpj": "XX.XXX.XXX/XXXX-XX ou vazio",
+  "capitalSocial": "valor ou vazio",
+  "porte": "tipo ou vazio",
+  "socios": "nomes separados por vírgula ou vazio"
+}`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let aiText = response.text().trim();
+
+        // Limpar markdown
+        aiText = aiText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        const data = JSON.parse(aiText);
+        console.log('✅ Dados extraídos pela IA:', data);
+
         return data;
+    } catch (error) {
+        console.error('Erro ao extrair com IA:', error.message);
+        return null;
+    }
+}
+
+// Função para buscar CNPJ na Econodata usando IA
+export async function searchEconodata(companyName, city, genAI, geminiModel) {
+    try {
+        console.log(`\n🔍 Buscando na Econodata: ${companyName}`);
+
+        const result = await searchWithAI(companyName, city, 'econodata', genAI, geminiModel);
+
+        if (!result) {
+            console.log('⚠️ Não encontrado na Econodata');
+            return null;
+        }
+
+        // Extrair conteúdo da página
+        const pageContent = await page.evaluate(() => document.body.innerText);
+
+        // Usar IA para extrair informações
+        const data = await extractWithAI(pageContent, companyName, genAI, geminiModel);
+
+        if (data && data.cnpj) {
+            return { ...data, url: result.url, fonte: 'Econodata' };
+        }
+
+        return null;
     } catch (error) {
         console.error('Erro ao buscar na Econodata:', error.message);
         return null;
     }
 }
 
-// Função para buscar CNPJ no CNPJBiz
-export async function searchCNPJBiz(cnpj) {
+// Função para buscar CNPJ no CNPJBiz usando IA
+export async function searchCNPJBiz(companyName, city, cnpj, genAI, geminiModel) {
     try {
+        console.log(`\n🔍 Buscando no CNPJBiz: ${companyName}`);
+
         const browser = await initBrowser();
 
         if (!page || page.isClosed()) {
             page = await browser.newPage();
         }
 
-        // Limpar CNPJ (apenas números)
-        const cleanCNPJ = cnpj.replace(/\D/g, '');
-        const url = `https://www.cnpj.biz/${cleanCNPJ}`;
+        let url;
 
-        console.log(`🔍 Buscando no CNPJBiz: ${cnpj}`);
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await delay(2000);
+        // Se já tem CNPJ, buscar diretamente
+        if (cnpj) {
+            const cleanCNPJ = cnpj.replace(/\D/g, '');
+            url = `https://www.cnpj.biz/${cleanCNPJ}`;
 
-        const data = await page.evaluate(() => {
-            const extractText = (label) => {
-                const labelEl = Array.from(document.querySelectorAll('strong, .label, dt')).find(
-                    el => el.textContent.toLowerCase().includes(label.toLowerCase())
-                );
-                if (!labelEl) return '';
+            console.log(`🔗 Acessando diretamente: ${url}`);
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await delay(3000);
+        } else {
+            // Buscar no Google
+            const result = await searchWithAI(companyName, city, 'cnpj.biz', genAI, geminiModel);
 
-                // Próximo elemento ou texto seguinte
-                const valueEl = labelEl.nextElementSibling || labelEl.parentElement?.querySelector('dd, .value');
-                return valueEl?.textContent?.trim() || '';
-            };
+            if (!result) {
+                console.log('⚠️ Não encontrado no CNPJBiz');
+                return null;
+            }
 
-            return {
-                capitalSocial: extractText('capital social'),
-                porte: extractText('porte') || extractText('natureza jurídica'),
-                socios: extractText('sócios') || extractText('quadro societário') || extractText('administradores')
-            };
-        });
+            url = result.url;
+        }
 
-        console.log('✅ Dados encontrados no CNPJBiz');
-        return data;
+        // Extrair conteúdo da página
+        const pageContent = await page.evaluate(() => document.body.innerText);
+
+        // Usar IA para extrair informações
+        const data = await extractWithAI(pageContent, companyName, genAI, geminiModel);
+
+        if (data) {
+            return { ...data, url, fonte: 'CNPJBiz' };
+        }
+
+        return null;
     } catch (error) {
         console.error('Erro ao buscar no CNPJBiz:', error.message);
         return null;
@@ -637,7 +749,7 @@ export async function searchCNPJBiz(cnpj) {
 }
 
 // Função para verificar se tem Google Meu Negócio
-export async function checkGoogleMyBusiness(companyName, city) {
+export async function checkGoogleMyBusiness(companyName, city, genAI, geminiModel) {
     try {
         const browser = await initBrowser();
 
@@ -652,28 +764,65 @@ export async function checkGoogleMyBusiness(companyName, city) {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
-        // Verificar se aparece card do Google Meu Negócio
-        const hasGMB = await page.evaluate(() => {
-            // Procurar pelo Knowledge Panel (card lateral) do Google
-            const knowledgePanel = document.querySelector('[data-attrid="kc:/local:one box"], [class*="knowledge"], .kp-wholepage, [data-md]');
+        // Capturar texto da página
+        const pageText = await page.evaluate(() => {
+            // Focar na área do Knowledge Panel (card lateral)
+            const knowledgePanel = document.querySelector('[data-attrid="kc:/local:one box"], [class*="knowledge"], .kp-wholepage');
 
-            if (!knowledgePanel) return false;
+            if (knowledgePanel) {
+                return {
+                    hasPanel: true,
+                    text: knowledgePanel.innerText
+                };
+            }
 
-            // Verificar se tem elementos típicos de GMB
-            const hasAddress = knowledgePanel.querySelector('[data-attrid*="address"], [class*="address"]');
-            const hasPhone = knowledgePanel.querySelector('[data-attrid*="phone"], [class*="phone"]');
-            const hasHours = knowledgePanel.querySelector('[data-attrid*="hours"], [class*="hours"]');
-            const hasRating = knowledgePanel.querySelector('[class*="review"], [class*="rating"]');
-
-            return !!(hasAddress || hasPhone || hasHours || hasRating);
+            return { hasPanel: false };
         });
 
-        if (hasGMB) {
-            console.log('✅ Tem página no Google Meu Negócio');
-            return { hasGMB: true, gmbUrl: url };
-        } else {
-            console.log('⚠️ Não encontrou Google Meu Negócio');
+        if (!pageText.hasPanel) {
+            console.log('⚠️ Nenhum Knowledge Panel encontrado');
             return { hasGMB: false };
+        }
+
+        // Usar IA para verificar se é o estabelecimento correto
+        const model = genAI.getGenerativeModel({ model: geminiModel });
+        const prompt = `Você é um assistente que analisa resultados do Google Meu Negócio.
+
+Estabelecimento procurado: ${companyName}
+Cidade: ${city}
+
+Conteúdo do Knowledge Panel:
+${pageText.text.substring(0, 2000)}
+
+TAREFA: Determine se este Knowledge Panel é do estabelecimento correto.
+
+Verifique se:
+1. O nome corresponde a "${companyName}"
+2. A localização é em "${city}"
+3. Parece ser o mesmo tipo de negócio
+
+Retorne APENAS um JSON:
+{
+  "isCorrect": true ou false,
+  "confidence": "alta", "média" ou "baixa",
+  "reason": "breve explicação"
+}`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let aiText = response.text().trim();
+        aiText = aiText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        const analysis = JSON.parse(aiText);
+
+        console.log('🤖 Análise da IA:', analysis);
+
+        if (analysis.isCorrect) {
+            console.log('✅ Tem página no Google Meu Negócio');
+            return { hasGMB: true, gmbUrl: url, confidence: analysis.confidence };
+        } else {
+            console.log('⚠️ Knowledge Panel não corresponde ao estabelecimento');
+            return { hasGMB: false, reason: analysis.reason };
         }
     } catch (error) {
         console.error('Erro ao verificar Google Meu Negócio:', error.message);
@@ -682,7 +831,7 @@ export async function checkGoogleMyBusiness(companyName, city) {
 }
 
 // Função principal para aperfeiçoar dados de um prospect
-export async function enhanceProspectData(prospect) {
+export async function enhanceProspectData(prospect, genAI, geminiModel) {
     console.log(`\n🌟 Aperfeiçoando dados de: ${prospect.data.nome || 'prospect'}`);
 
     const enhancement = {};
@@ -691,7 +840,9 @@ export async function enhanceProspectData(prospect) {
     // 1. Tentar encontrar CNPJ na Econodata
     const econodataData = await searchEconodata(
         prospect.data.nome || '',
-        prospect.data.cidade || ''
+        prospect.data.cidade || '',
+        genAI,
+        geminiModel
     );
 
     if (econodataData && econodataData.cnpj) {
@@ -701,18 +852,27 @@ export async function enhanceProspectData(prospect) {
         enhancement.porte = econodataData.porte || '';
         enhancement.socios = econodataData.socios || '';
         enhancement.fonte = 'Econodata';
-    } else {
-        // 2. Se não achou na Econodata e tem CNPJ no prospect, buscar no CNPJBiz
-        if (prospect.data.cnpj) {
-            const cnpjBizData = await searchCNPJBiz(prospect.data.cnpj);
+        enhancement.fonteUrl = econodataData.url;
+    }
 
-            if (cnpjBizData) {
-                enhancement.cnpj = prospect.data.cnpj;
-                enhancement.capitalSocial = cnpjBizData.capitalSocial || '';
-                enhancement.porte = cnpjBizData.porte || '';
-                enhancement.socios = cnpjBizData.socios || '';
-                enhancement.fonte = 'CNPJBiz';
-            }
+    // 2. Se não achou na Econodata, buscar no CNPJBiz
+    if (!cnpjFound) {
+        const cnpjBizData = await searchCNPJBiz(
+            prospect.data.nome || '',
+            prospect.data.cidade || '',
+            prospect.data.cnpj || null,
+            genAI,
+            geminiModel
+        );
+
+        if (cnpjBizData && cnpjBizData.cnpj) {
+            cnpjFound = cnpjBizData.cnpj;
+            enhancement.cnpj = cnpjBizData.cnpj;
+            enhancement.capitalSocial = cnpjBizData.capitalSocial || '';
+            enhancement.porte = cnpjBizData.porte || '';
+            enhancement.socios = cnpjBizData.socios || '';
+            enhancement.fonte = 'CNPJBiz';
+            enhancement.fonteUrl = cnpjBizData.url;
         } else {
             enhancement.statusCNPJ = 'CNPJ não encontrado ou empresa não possui CNPJ';
         }
@@ -721,7 +881,9 @@ export async function enhanceProspectData(prospect) {
     // 3. Verificar Google Meu Negócio
     const gmbData = await checkGoogleMyBusiness(
         prospect.data.nome || '',
-        prospect.data.cidade || ''
+        prospect.data.cidade || '',
+        genAI,
+        geminiModel
     );
 
     enhancement.googleMeuNegocio = gmbData.hasGMB ? 'Sim' : 'Não';

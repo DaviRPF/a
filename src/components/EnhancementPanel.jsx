@@ -166,6 +166,48 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
                           </div>
                         )
                       ))}
+
+                      {/* Dados aperfeiçoados */}
+                      {prospect.data.fonte && (
+                        <div className="preview-field enhanced-field">
+                          <span className="field-label">📊 Fonte dos Dados:</span>
+                          {prospect.data.fonteUrl ? (
+                            <a
+                              href={prospect.data.fonteUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="field-value enhancement-link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {prospect.data.fonte}
+                            </a>
+                          ) : (
+                            <span className="field-value">{prospect.data.fonte}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {prospect.data.googleMeuNegocio === 'Sim' && prospect.data.googleMeuNegocioUrl && (
+                        <div className="preview-field enhanced-field">
+                          <span className="field-label">📍 Google Meu Negócio:</span>
+                          <a
+                            href={prospect.data.googleMeuNegocioUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="field-value enhancement-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Ver no Google
+                          </a>
+                        </div>
+                      )}
+
+                      {prospect.data.statusCNPJ && (
+                        <div className="preview-field">
+                          <span className="field-label">⚠️ Status:</span>
+                          <span className="field-value">{prospect.data.statusCNPJ}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
