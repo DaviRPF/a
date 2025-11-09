@@ -240,8 +240,8 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   if (!isOpen) return null
 
   return (
-    <div className="automation-overlay" onClick={onClose}>
-      <div className="automation-panel" onClick={(e) => e.stopPropagation()}>
+    <div className="automation-overlay">
+      <div className="automation-panel">
         <div className="automation-header">
           <h2>🤖 Geração Automática de Prospects</h2>
           <button className="btn-close-automation" onClick={onClose}>
