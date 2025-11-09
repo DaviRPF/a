@@ -209,24 +209,35 @@ export async function searchGoogleForInstagram(businessType, city) {
         console.log('Buscando no Google:', searchQuery);
         await page.goto(googleUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
+        console.log('🔍 Debug - TWOCAPTCHA_TOKEN está configurado?', process.env.TWOCAPTCHA_TOKEN ? 'SIM' : 'NÃO');
+        console.log('🔍 Debug - page.solveRecaptchas existe?', typeof page.solveRecaptchas === 'function' ? 'SIM' : 'NÃO');
+
         // Verificar se há captcha e tentar resolver automaticamente
         if (process.env.TWOCAPTCHA_TOKEN && page.solveRecaptchas) {
             try {
-                const { captchas, solutions, solved, error } = await page.solveRecaptchas();
+                console.log('🤖 Tentando resolver captcha automaticamente com 2captcha...');
+                const result = await page.solveRecaptchas();
 
-                if (solved && solved.length > 0) {
-                    console.log(`✅ Captcha resolvido automaticamente! ${solved.length} captcha(s)`);
+                console.log('🔍 Debug - Resultado do solveRecaptchas:', JSON.stringify({
+                    captchas: result.captchas?.length || 0,
+                    solutions: result.solutions?.length || 0,
+                    solved: result.solved?.length || 0,
+                    error: result.error || 'nenhum'
+                }));
+
+                if (result.solved && result.solved.length > 0) {
+                    console.log(`✅ Captcha resolvido automaticamente! ${result.solved.length} captcha(s)`);
                     // Aguardar a página recarregar após resolver o captcha
                     await delay(3000);
+                } else {
+                    console.log('ℹ️ Nenhum captcha encontrado na página ou já estava resolvido');
                 }
 
-                if (error) {
-                    console.error('Erro ao resolver captcha:', error);
+                if (result.error) {
+                    console.error('❌ Erro ao resolver captcha:', result.error);
                 }
             } catch (captchaError) {
-                console.log('⚠️ Não foi possível resolver captcha automaticamente');
-                console.log('Configure TWOCAPTCHA_TOKEN no .env para resolução automática');
-                // Aguardar um pouco para usuário resolver manualmente
+                console.log('❌ Exceção ao tentar resolver captcha:', captchaError.message);
                 console.log('Aguardando 30 segundos para resolução manual do captcha...');
                 await delay(30000);
             }
