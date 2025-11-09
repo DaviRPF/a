@@ -21,7 +21,8 @@
     "dotenv": "^16.4.5",
     "puppeteer": "^23.0.0",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer-extra-plugin-recaptcha": "^3.6.8"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
