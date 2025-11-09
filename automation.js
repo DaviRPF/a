@@ -207,7 +207,14 @@ export async function searchGoogleForInstagram(businessType, city) {
         const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
 
         console.log('Buscando no Google:', searchQuery);
-        await page.goto(googleUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        console.log('🔍 Navegando para:', googleUrl);
+
+        // Usar 'domcontentloaded' em vez de 'networkidle2' para não travar em páginas com captcha
+        await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        console.log('✅ Página carregada');
+
+        // Aguardar um pouco para garantir que o captcha apareça se houver
+        await delay(2000);
 
         console.log('🔍 Debug - TWOCAPTCHA_TOKEN está configurado?', process.env.TWOCAPTCHA_TOKEN ? 'SIM' : 'NÃO');
         console.log('🔍 Debug - page.solveRecaptchas existe?', typeof page.solveRecaptchas === 'function' ? 'SIM' : 'NÃO');
@@ -219,8 +226,8 @@ export async function searchGoogleForInstagram(businessType, city) {
 
                 // Configurar listener para navegação antes de resolver o captcha
                 const navigationPromise = page.waitForNavigation({
-                    waitUntil: 'networkidle2',
-                    timeout: 120000
+                    waitUntil: 'domcontentloaded',
+                    timeout: 90000
                 }).catch(() => {
                     console.log('⏳ Timeout na espera de navegação (pode ser normal se não houve navegação)');
                     return null;
@@ -267,7 +274,7 @@ export async function searchGoogleForInstagram(businessType, city) {
         // Se ainda estiver em página de captcha ou erro, tentar navegar novamente
         if (currentUrl.includes('sorry/index') || currentUrl.includes('recaptcha')) {
             console.log('⚠️ Ainda em página de captcha/erro. Tentando navegar para resultados novamente...');
-            await page.goto(googleUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+            await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
             await delay(3000);
         }
 
