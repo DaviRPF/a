@@ -228,7 +228,8 @@ export async function searchGoogleForInstagram(businessType, city) {
                 if (result.solved && result.solved.length > 0) {
                     console.log(`✅ Captcha resolvido automaticamente! ${result.solved.length} captcha(s)`);
                     // Aguardar a página recarregar após resolver o captcha
-                    await delay(3000);
+                    console.log('⏳ Aguardando 5 segundos para a página carregar após resolver captcha...');
+                    await delay(5000);
                 } else {
                     console.log('ℹ️ Nenhum captcha encontrado na página ou já estava resolvido');
                 }
@@ -247,10 +248,25 @@ export async function searchGoogleForInstagram(businessType, city) {
             await delay(30000);
         }
 
+        // Verificar URL atual após resolver captcha
+        const currentUrl = page.url();
+        console.log('🔍 Debug - URL atual após captcha:', currentUrl);
+
+        // Se ainda estiver em página de captcha ou erro, tentar navegar novamente
+        if (currentUrl.includes('sorry/index') || currentUrl.includes('recaptcha')) {
+            console.log('⚠️ Ainda em página de captcha/erro. Tentando navegar para resultados novamente...');
+            await page.goto(googleUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+            await delay(3000);
+        }
+
+        console.log('🔍 Procurando links do Instagram na página...');
+
         // Extrair links do Instagram dos resultados
         const instagramLinks = await page.evaluate(() => {
             const links = [];
             const anchors = document.querySelectorAll('a[href*="instagram.com"]');
+
+            console.log(`🔍 Total de links com "instagram.com" encontrados: ${anchors.length}`);
 
             anchors.forEach(anchor => {
                 const href = anchor.href;
@@ -270,7 +286,17 @@ export async function searchGoogleForInstagram(businessType, city) {
             return links;
         });
 
-        console.log(`Encontrados ${instagramLinks.length} perfis do Instagram`);
+        console.log(`✅ Encontrados ${instagramLinks.length} perfis do Instagram únicos`);
+
+        if (instagramLinks.length === 0) {
+            console.log('⚠️ Nenhum perfil encontrado. Possíveis causas:');
+            console.log('   - Captcha ainda não foi resolvido completamente');
+            console.log('   - Google bloqueou a busca');
+            console.log('   - Página não carregou corretamente');
+        } else {
+            console.log('📋 Perfis encontrados:', instagramLinks.map(l => l.username).join(', '));
+        }
+
         return instagramLinks.slice(0, 10);
     } catch (error) {
         console.error('Erro na busca:', error);
