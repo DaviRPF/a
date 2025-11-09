@@ -14,6 +14,9 @@ const COOKIES_FILE = path.join(__dirname, 'instagram-cookies.json');
 let browser = null;
 let page = null;
 
+// Helper para substituir waitForTimeout (que foi depreciado)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Função para inicializar o navegador
 export async function initBrowser() {
     if (browser) return browser;
@@ -46,7 +49,7 @@ export async function loginInstagram(username, password) {
         await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle2' });
 
         // Verificar se já está logado
-        await page.waitForTimeout(2000);
+        await delay(2000);
         const isLoggedIn = await page.evaluate(() => {
             return !document.querySelector('input[name="username"]');
         });
@@ -70,7 +73,7 @@ export async function loginInstagram(username, password) {
             fs.writeFileSync(COOKIES_FILE, JSON.stringify(cookies, null, 2));
 
             // Lidar com popup "Salvar informações"
-            await page.waitForTimeout(2000);
+            await delay(2000);
             const notNowButton = await page.$('button:has-text("Agora não")');
             if (notNowButton) {
                 await notNowButton.click();
@@ -140,7 +143,7 @@ export async function extractInstagramData(username) {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
         // Esperar um pouco para a página carregar
-        await page.waitForTimeout(3000);
+        await delay(3000);
 
         // Extrair informações da página
         const data = await page.evaluate(() => {
@@ -216,7 +219,7 @@ export async function checkLoginStatus() {
         await page.setCookie(...cookies);
 
         await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle2' });
-        await page.waitForTimeout(2000);
+        await delay(2000);
 
         const isLoggedIn = await page.evaluate(() => {
             return !document.querySelector('input[name="username"]');
