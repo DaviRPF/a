@@ -35,9 +35,30 @@ let page = null;
 // Helper para substituir waitForTimeout (que foi depreciado)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Função para verificar se o browser está ativo
+async function isBrowserActive() {
+    if (!browser) return false;
+
+    try {
+        await browser.version();
+        return true;
+    } catch {
+        browser = null;
+        page = null;
+        return false;
+    }
+}
+
 // Função para inicializar o navegador
 export async function initBrowser() {
-    if (browser) return browser;
+    // Verificar se browser existente ainda está ativo
+    if (browser && await isBrowserActive()) {
+        return browser;
+    }
+
+    // Se não está ativo, resetar e criar novo
+    browser = null;
+    page = null;
 
     browser = await puppeteer.launch({
         headless: false, // Visível para fazer login
@@ -49,6 +70,13 @@ export async function initBrowser() {
         ]
     });
 
+    // Adicionar listener para quando o browser for fechado
+    browser.on('disconnected', () => {
+        console.log('Navegador foi fechado');
+        browser = null;
+        page = null;
+    });
+
     return browser;
 }
 
@@ -56,7 +84,11 @@ export async function initBrowser() {
 export async function loginInstagram(username, password) {
     try {
         const browser = await initBrowser();
-        page = await browser.newPage();
+
+        // Criar nova página se não existir ou se foi fechada
+        if (!page || page.isClosed()) {
+            page = await browser.newPage();
+        }
 
         // Tentar carregar cookies salvos
         if (fs.existsSync(COOKIES_FILE)) {
@@ -112,7 +144,12 @@ export async function loginInstagram(username, password) {
 // Função para salvar sessão atual (após login manual)
 export async function saveSession() {
     try {
-        if (!page) {
+        // Verificar se browser está ativo
+        if (!await isBrowserActive()) {
+            return { success: false, message: 'Navegador não está aberto. Faça login primeiro.' };
+        }
+
+        if (!page || page.isClosed()) {
             return { success: false, message: 'Nenhuma página ativa. Faça login primeiro.' };
         }
 
@@ -142,8 +179,10 @@ export async function saveSession() {
 // Função para buscar no Google com resolução automática de captcha
 export async function searchGoogleForInstagram(businessType, city) {
     try {
-        if (!page) {
-            const browser = await initBrowser();
+        const browser = await initBrowser();
+
+        // Criar nova página se não existir ou se foi fechada
+        if (!page || page.isClosed()) {
             page = await browser.newPage();
         }
 
@@ -201,8 +240,8 @@ export async function searchGoogleForInstagram(businessType, city) {
 // Função para extrair dados de um perfil do Instagram
 export async function extractInstagramData(username) {
     try {
-        if (!page) {
-            throw new Error('Navegador não inicializado');
+        if (!await isBrowserActive() || !page || page.isClosed()) {
+            throw new Error('Navegador não inicializado ou foi fechado');
         }
 
         const url = `https://www.instagram.com/${username}/`;
@@ -279,7 +318,11 @@ export async function checkLoginStatus() {
         }
 
         const browser = await initBrowser();
-        page = await browser.newPage();
+
+        // Criar nova página se não existir ou se foi fechada
+        if (!page || page.isClosed()) {
+            page = await browser.newPage();
+        }
 
         const cookies = JSON.parse(fs.readFileSync(COOKIES_FILE, 'utf8'));
         await page.setCookie(...cookies);
