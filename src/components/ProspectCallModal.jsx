@@ -93,8 +93,17 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
       // Tentar capturar áudio do sistema (via compartilhamento de tela/aba)
       try {
         const systemStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true
+          video: {
+            displaySurface: "monitor" // Preferir tela inteira
+          },
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          },
+          preferCurrentTab: false,
+          selfBrowserSurface: "exclude",
+          systemAudio: "include" // Chrome: tenta incluir áudio do sistema
         })
 
         // Verificar se o stream tem áudio
@@ -103,14 +112,16 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           systemStreamRef.current = systemStream
           const systemAnalyzerData = setupVolumeAnalyzer(systemStream, setSystemVolume, systemAnimationFrameRef)
           systemAnalyserRef.current = systemAnalyzerData
-          console.log('Áudio do sistema capturado com sucesso')
+          console.log('✅ Áudio do sistema capturado com sucesso')
+          console.log('Fonte de áudio:', audioTracks[0].label)
         } else {
-          console.log('Nenhuma faixa de áudio no stream do sistema')
+          console.log('⚠️ Nenhuma faixa de áudio no stream do sistema')
           // Parar o vídeo se não tem áudio
           systemStream.getTracks().forEach(track => track.stop())
+          alert('Compartilhamento sem áudio. Para capturar áudio do PC:\n\n1. Marque a caixa "Compartilhar áudio" ao compartilhar\n2. Ou use um software de loopback (VB-Cable, VoiceMeeter, BlackHole)')
         }
       } catch (err) {
-        console.log('Usuário não compartilhou áudio do sistema:', err.message)
+        console.log('❌ Usuário cancelou ou erro:', err.message)
       }
 
       // Iniciar reconhecimento de voz
@@ -317,6 +328,17 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Dica de Áudio do Sistema */}
+            <div className="audio-tip">
+              <strong>💡 Dica:</strong> Para capturar TODO o áudio do PC, use um software de loopback:
+              <br />
+              • Windows: <a href="https://vb-audio.com/Voicemeeter/" target="_blank" rel="noopener">VoiceMeeter</a> ou <a href="https://vb-audio.com/Cable/" target="_blank" rel="noopener">VB-Cable</a>
+              <br />
+              • macOS: <a href="https://github.com/ExistentialAudio/BlackHole" target="_blank" rel="noopener">BlackHole</a>
+              <br />
+              Ou marque "Compartilhar áudio" ao compartilhar tela.
             </div>
 
             {/* Visualizadores de Volume */}

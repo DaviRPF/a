@@ -120,6 +120,28 @@
   font-size: 1rem;
 }
 
+/* Dica de Áudio */
+.audio-tip {
+  background: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #1565c0;
+}
+
+.audio-tip a {
+  color: #1976d2;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.audio-tip a:hover {
+  color: #0d47a1;
+}
+
 /* Visualizadores de Volume */
 .volume-meters {
   display: grid;
