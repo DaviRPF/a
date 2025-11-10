@@ -1,7 +1,16 @@
+import { useState } from 'react'
 import ProspectCard from './ProspectCard'
+import ProspectCallModal from './ProspectCallModal'
 import '../styles/ProspectList.css'
 
 const ProspectList = ({ prospects, fields = [], loading, onUpdateStatus, onDelete }) => {
+  const [prospectingId, setProspectingId] = useState(null)
+
+  const handleUpdateProspect = (updatedData) => {
+    // Atualizar prospect via API
+    onUpdateStatus(prospectingId, updatedData.status)
+  }
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -38,9 +47,19 @@ const ProspectList = ({ prospects, fields = [], loading, onUpdateStatus, onDelet
             fields={fields}
             onUpdateStatus={onUpdateStatus}
             onDelete={onDelete}
+            onProspect={setProspectingId}
           />
         ))}
       </div>
+
+      {/* Modal de Prospecção */}
+      <ProspectCallModal
+        isOpen={prospectingId !== null}
+        onClose={() => setProspectingId(null)}
+        prospect={prospectingId !== null ? prospects.find(p => p.id === prospectingId) : null}
+        fields={fields}
+        onUpdate={handleUpdateProspect}
+      />
     </div>
   )
 }

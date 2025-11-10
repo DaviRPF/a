@@ -21,7 +21,7 @@ const STATUS_COLORS = {
   'Objeção do decisor': '#e74c3c'
 }
 
-const ProspectCard = ({ prospect, fields = [], onUpdateStatus, onDelete }) => {
+const ProspectCard = ({ prospect, fields = [], onUpdateStatus, onDelete, onProspect }) => {
   const [isUpdating, setIsUpdating] = useState(false)
 
   const handleStatusChange = async (e) => {
@@ -104,6 +104,16 @@ const ProspectCard = ({ prospect, fields = [], onUpdateStatus, onDelete }) => {
           ))}
         </select>
       </div>
+
+      {/* Botão de Prospecção */}
+      {onProspect && (
+        <button
+          className="btn-prospect-card"
+          onClick={() => onProspect(prospect.id)}
+        >
+          📞 Iniciar Prospecção
+        </button>
+      )}
     </div>
   )
 }
