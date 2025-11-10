@@ -200,56 +200,64 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
                     </div>
 
                     <div className="prospect-preview-data">
-                      {fields.slice(0, 6).map(field => (
-                        prospect.data[field.id] && (
+                      {/* Mostrar TODOS os campos que têm valor */}
+                      {fields.map(field => {
+                        const value = prospect.data[field.id]
+                        if (!value) return null
+
+                        // Para campos com URL, criar link clicável
+                        if (field.id === 'fonteUrl' && prospect.data.fonte) {
+                          return (
+                            <div key={field.id} className="preview-field enhanced-field">
+                              <span className="field-label">{field.icon} {field.label}:</span>
+                              <a
+                                href={value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="field-value enhancement-link"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {prospect.data.fonte}
+                              </a>
+                            </div>
+                          )
+                        }
+
+                        if (field.id === 'googleMeuNegocioUrl' && prospect.data.googleMeuNegocio === 'Sim') {
+                          return (
+                            <div key={field.id} className="preview-field enhanced-field">
+                              <span className="field-label">{field.icon} {field.label}:</span>
+                              <a
+                                href={value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="field-value enhancement-link"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Ver no Google
+                              </a>
+                            </div>
+                          )
+                        }
+
+                        // Renderizar textarea com quebras de linha
+                        if (field.type === 'textarea') {
+                          return (
+                            <div key={field.id} className="preview-field">
+                              <span className="field-label">{field.icon} {field.label}:</span>
+                              <span className="field-value" style={{ whiteSpace: 'pre-wrap' }}>{value}</span>
+                            </div>
+                          )
+                        }
+
+                        // Campos normais
+                        return (
                           <div key={field.id} className="preview-field">
                             <span className="field-label">{field.icon} {field.label}:</span>
-                            <span className="field-value">{prospect.data[field.id]}</span>
+                            <span className="field-value">{value}</span>
                           </div>
                         )
-                      ))}
-
-                      {/* Dados aperfeiçoados */}
-                      {prospect.data.fonte && (
-                        <div className="preview-field enhanced-field">
-                          <span className="field-label">📊 Fonte dos Dados:</span>
-                          {prospect.data.fonteUrl ? (
-                            <a
-                              href={prospect.data.fonteUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="field-value enhancement-link"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {prospect.data.fonte}
-                            </a>
-                          ) : (
-                            <span className="field-value">{prospect.data.fonte}</span>
-                          )}
-                        </div>
-                      )}
-
-                      {prospect.data.googleMeuNegocio === 'Sim' && prospect.data.googleMeuNegocioUrl && (
-                        <div className="preview-field enhanced-field">
-                          <span className="field-label">📍 Google Meu Negócio:</span>
-                          <a
-                            href={prospect.data.googleMeuNegocioUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="field-value enhancement-link"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Ver no Google
-                          </a>
-                        </div>
-                      )}
-
-                      {prospect.data.statusCNPJ && (
-                        <div className="preview-field">
-                          <span className="field-label">⚠️ Status:</span>
-                          <span className="field-value">{prospect.data.statusCNPJ}</span>
-                        </div>
-                      )}
+                      })}
                     </div>
 
                     {/* Botão de Prospecção */}
