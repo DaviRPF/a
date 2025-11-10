@@ -73,7 +73,8 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
         // Procurar link com o domínio correto nos resultados
         console.log(`🔎 Procurando link do domínio: ${domain}`);
 
-        const linkFound = await page.evaluate((targetDomain) => {
+        // MÉTODO CORRIGIDO: Encontrar o URL do link primeiro
+        const targetUrl = await page.evaluate((targetDomain) => {
             // Procurar todos os links de resultados do Google
             const resultLinks = Array.from(document.querySelectorAll('a'));
 
@@ -81,27 +82,25 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
                 const href = link.href;
 
                 // Verificar se o link contém o domínio alvo
-                if (href && href.includes(targetDomain)) {
+                if (href && href.includes(targetDomain) && !href.includes('google.com')) {
                     console.log('Link encontrado:', href);
-
-                    // Clicar no link
-                    link.click();
-                    return { success: true, url: href };
+                    return href;
                 }
             }
 
-            return { success: false };
+            return null;
         }, domain);
 
-        if (!linkFound.success) {
+        if (!targetUrl) {
             console.log(`❌ Nenhum link do ${siteName} encontrado`);
             return null;
         }
 
-        console.log(`✅ Link encontrado e clicado: ${linkFound.url}`);
+        console.log(`✅ Link encontrado: ${targetUrl}`);
+        console.log(`🖱️ Navegando para: ${targetUrl}`);
 
-        // Aguardar navegação para a nova página
-        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 });
+        // NAVEGAR DIRETAMENTE para o URL encontrado
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
         console.log(`📄 Página carregada: ${page.url()}`);
