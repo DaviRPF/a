@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
+import ProspectCallModal from './ProspectCallModal'
 import '../styles/EnhancementPanel.css'
 
 const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }) => {
@@ -8,6 +9,7 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
   const [statusMessage, setStatusMessage] = useState('')
   const [enhancedProspects, setEnhancedProspects] = useState(prospects)
   const [eventSource, setEventSource] = useState(null)
+  const [prospectingIndex, setProspectingIndex] = useState(null)
 
   const handleEnhance = async () => {
     setIsEnhancing(true)
@@ -117,6 +119,14 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
       eventSource.close()
     }
     onClose()
+  }
+
+  const handleUpdateProspect = (updatedProspect) => {
+    setEnhancedProspects(prev =>
+      prev.map((p, idx) =>
+        idx === prospectingIndex ? { ...p, data: updatedProspect } : p
+      )
+    )
   }
 
   if (!isOpen) return null
@@ -241,6 +251,14 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
                         </div>
                       )}
                     </div>
+
+                    {/* Botão de Prospecção */}
+                    <button
+                      className="btn-prospect"
+                      onClick={() => setProspectingIndex(idx)}
+                    >
+                      📞 Iniciar Prospecção
+                    </button>
                   </div>
                 )
               })}
@@ -273,6 +291,15 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
           </div>
         </div>
       </div>
+
+      {/* Modal de Prospecção */}
+      <ProspectCallModal
+        isOpen={prospectingIndex !== null}
+        onClose={() => setProspectingIndex(null)}
+        prospect={prospectingIndex !== null ? { ...enhancedProspects[prospectingIndex].data, id: enhancedProspects[prospectingIndex].tempId } : null}
+        fields={fields}
+        onUpdate={handleUpdateProspect}
+      />
     </div>
   )
 }
