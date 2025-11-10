@@ -127,9 +127,24 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
   }
 
   const parseScheduleDateTime = (scheduleText, type) => {
-    // Tenta parsear strings como "14/11 às 15h", "amanhã às 10h", "segunda-feira 14h", etc.
     if (!scheduleText) return null
 
+    // PRIORIDADE 1: Formato ISO 8601 (YYYY-MM-DDTHH:mm)
+    const isoMatch = scheduleText.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+    if (isoMatch) {
+      const [_, year, month, day, hour, minute] = isoMatch
+      const date = new Date(
+        parseInt(year),
+        parseInt(month) - 1, // Mês começa em 0
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute)
+      )
+      console.log('📅 Data ISO parseada:', scheduleText, '→', date)
+      return date
+    }
+
+    // FALLBACK: Parsear texto livre (para dados antigos)
     const today = new Date()
     const lowerText = scheduleText.toLowerCase()
 
@@ -166,6 +181,7 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     }
 
     targetDate.setHours(hour, minute, 0, 0)
+    console.log('📅 Data texto livre parseada:', scheduleText, '→', targetDate)
     return targetDate
   }
 
@@ -333,7 +349,22 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
                     <div className="schedule-info">
                       <div className="info-item highlight">
                         <span className="info-label">📅 Data/Horário:</span>
-                        <span className="info-value">{prospect.diaHorarioReuniao}</span>
+                        <span className="info-value">
+                          {(() => {
+                            const date = parseScheduleDateTime(prospect.diaHorarioReuniao, 'meeting')
+                            if (date) {
+                              return date.toLocaleString('pt-BR', {
+                                weekday: 'long',
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            }
+                            return prospect.diaHorarioReuniao
+                          })()}
+                        </span>
                       </div>
 
                       {getFieldValue(prospect, 'telefone') && (
