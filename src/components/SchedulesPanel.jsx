@@ -4,6 +4,9 @@ import '../styles/SchedulesPanel.css'
 
 const SchedulesPanel = ({ prospects = [], fields = [] }) => {
   const [schedules, setSchedules] = useState({ returns: [], meetings: [] })
+  const [weekOffset, setWeekOffset] = useState(0) // 0 = semana atual, 1 = próxima, -1 = anterior
+  const [showMonthView, setShowMonthView] = useState(false)
+  const [monthOffset, setMonthOffset] = useState(0) // 0 = mês atual
 
   useEffect(() => {
     loadSchedules()
@@ -41,6 +44,9 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     const diff = currentDay === 0 ? -6 : 1 - currentDay
     monday.setDate(today.getDate() + diff)
 
+    // Aplicar offset de semanas
+    monday.setDate(monday.getDate() + (weekOffset * 7))
+
     const days = []
     for (let i = 0; i < 7; i++) {
       const day = new Date(monday)
@@ -48,6 +54,76 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
       days.push(day)
     }
     return days
+  }
+
+  const getWeekRange = () => {
+    const days = getWeekDays()
+    const firstDay = days[0]
+    const lastDay = days[6]
+
+    const formatDate = (date) => {
+      const day = date.getDate()
+      const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+      const month = months[date.getMonth()]
+      return `${day} ${month}`
+    }
+
+    return `${formatDate(firstDay)} - ${formatDate(lastDay)}`
+  }
+
+  const goToPreviousWeek = () => {
+    setWeekOffset(prev => prev - 1)
+  }
+
+  const goToNextWeek = () => {
+    setWeekOffset(prev => prev + 1)
+  }
+
+  const goToToday = () => {
+    setWeekOffset(0)
+  }
+
+  const getMonthDays = () => {
+    const today = new Date()
+    const targetMonth = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1)
+
+    const year = targetMonth.getFullYear()
+    const month = targetMonth.getMonth()
+
+    // Primeiro dia do mês
+    const firstDay = new Date(year, month, 1)
+    // Último dia do mês
+    const lastDay = new Date(year, month + 1, 0)
+
+    // Dia da semana do primeiro dia (0 = domingo)
+    const firstDayOfWeek = firstDay.getDay()
+
+    // Ajustar para começar na segunda-feira
+    const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
+
+    // Criar array de dias
+    const days = []
+
+    // Dias do mês anterior (para preencher início da semana)
+    for (let i = startOffset - 1; i >= 0; i--) {
+      const day = new Date(year, month, -i)
+      days.push({ date: day, isCurrentMonth: false })
+    }
+
+    // Dias do mês atual
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      const day = new Date(year, month, i)
+      days.push({ date: day, isCurrentMonth: true })
+    }
+
+    // Dias do próximo mês (para completar última semana)
+    const remainingDays = 42 - days.length // 6 semanas × 7 dias
+    for (let i = 1; i <= remainingDays; i++) {
+      const day = new Date(year, month + 1, i)
+      days.push({ date: day, isCurrentMonth: false })
+    }
+
+    return { days, month: targetMonth }
   }
 
   const parseScheduleDateTime = (scheduleText, type) => {
@@ -296,8 +372,31 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
 
           {/* Calendário Semanal */}
           <section className="calendar-section">
-            <h3>📆 Calendário da Semana</h3>
-            <p className="section-subtitle">Visualização dos agendamentos em grade horária</p>
+            <div className="calendar-header">
+              <div className="calendar-title">
+                <h3>📆 Calendário da Semana</h3>
+                <p className="section-subtitle">Visualização dos agendamentos em grade horária</p>
+              </div>
+
+              <div className="calendar-controls">
+                <button className="btn-today" onClick={goToToday}>
+                  Hoje
+                </button>
+                <button className="btn-month-view" onClick={() => setShowMonthView(true)}>
+                  📅 Ver Mês Completo
+                </button>
+              </div>
+            </div>
+
+            <div className="week-navigation">
+              <button className="btn-nav" onClick={goToPreviousWeek}>
+                ←
+              </button>
+              <span className="week-range">{getWeekRange()}</span>
+              <button className="btn-nav" onClick={goToNextWeek}>
+                →
+              </button>
+            </div>
 
             <div className="calendar-container">
               {/* Grid de horários */}
@@ -358,6 +457,67 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
             </div>
           </section>
         </div>
+
+      {/* Modal de Visualização Mensal */}
+      {showMonthView && (
+        <div className="modal-overlay" onClick={() => setShowMonthView(false)}>
+          <div className="month-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="month-modal-header">
+              <button className="btn-nav" onClick={() => setMonthOffset(prev => prev - 1)}>
+                ←
+              </button>
+              <h2>{getMonthDays().month.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h2>
+              <button className="btn-nav" onClick={() => setMonthOffset(prev => prev + 1)}>
+                →
+              </button>
+              <button className="btn-close-month" onClick={() => setShowMonthView(false)}>✕</button>
+            </div>
+
+            <div className="month-calendar">
+              <div className="month-weekdays">
+                <div className="month-weekday">Seg</div>
+                <div className="month-weekday">Ter</div>
+                <div className="month-weekday">Qua</div>
+                <div className="month-weekday">Qui</div>
+                <div className="month-weekday">Sex</div>
+                <div className="month-weekday">Sáb</div>
+                <div className="month-weekday">Dom</div>
+              </div>
+
+              <div className="month-days-grid">
+                {getMonthDays().days.map((dayObj, index) => {
+                  const daySchedules = getSchedulesForDay(dayObj.date)
+                  const isToday = isSameDay(dayObj.date, new Date())
+
+                  return (
+                    <div
+                      key={index}
+                      className={`month-day ${!dayObj.isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}`}
+                    >
+                      <div className="month-day-number">{dayObj.date.getDate()}</div>
+                      <div className="month-day-events">
+                        {daySchedules.map((schedule, idx) => (
+                          <div
+                            key={idx}
+                            className={`month-event ${schedule.type}`}
+                            title={`${schedule.date.getHours()}:${schedule.date.getMinutes().toString().padStart(2, '0')} - ${getFieldValue(schedule.prospect, 'nome')}`}
+                          >
+                            <span className="month-event-icon">{schedule.type === 'return' ? '⏰' : '🤝'}</span>
+                            <span className="month-event-time">
+                              {schedule.date.getHours()}:{schedule.date.getMinutes().toString().padStart(2, '0')}
+                            </span>
+                            <span className="month-event-name">{getFieldValue(schedule.prospect, 'nome')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
