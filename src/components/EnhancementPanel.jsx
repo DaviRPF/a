@@ -88,10 +88,27 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
   }
 
   const handleCancel = async () => {
-    // Salvar prospects como pendentes ao cancelar
+    // Salvar prospects como pendentes ao cancelar (ADICIONAR aos existentes, não sobrescrever)
     try {
-      await axios.post('/api/pending-prospects', { prospects: enhancedProspects })
-      console.log('Prospects salvos como pendentes')
+      // 1. Carregar pendentes existentes
+      const response = await axios.get('/api/pending-prospects')
+      const existingPending = response.data || []
+
+      // 2. Combinar com os prospects que estavam sendo aperfeiçoados
+      const combinedPending = [...existingPending, ...enhancedProspects]
+
+      // 3. Remover duplicatas (baseado no id)
+      const uniquePending = combinedPending.reduce((acc, current) => {
+        const exists = acc.find(p => p.id === current.id)
+        if (!exists) {
+          acc.push(current)
+        }
+        return acc
+      }, [])
+
+      // 4. Salvar array combinado
+      await axios.post('/api/pending-prospects', { prospects: uniquePending })
+      console.log(`${uniquePending.length} prospects salvos como pendentes (${existingPending.length} existentes + ${enhancedProspects.length} novos)`)
     } catch (error) {
       console.error('Erro ao salvar prospects pendentes:', error)
     }
