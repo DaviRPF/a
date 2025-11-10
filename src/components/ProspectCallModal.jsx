@@ -562,15 +562,44 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
               <section className="prospect-info-section">
                 <h3>📋 Informações do Prospect</h3>
                 <div className="form-grid">
-                  {fields.map(field => (
-                    <div key={field.id} className="form-group">
-                      <label htmlFor={field.id}>
-                        {field.icon && <span className="field-icon-label">{field.icon}</span>}
-                        {field.label}
-                      </label>
-                      {renderField(field)}
-                    </div>
-                  ))}
+                  {/* Renderizar TODAS as propriedades do prospect */}
+                  {Object.keys(formData).map(key => {
+                    // Ignorar campos de sistema
+                    if (key === 'id' || key === 'createdAt') return null
+
+                    // Verificar se existe campo customizado
+                    const customField = fields.find(f => f.id === key)
+
+                    if (customField) {
+                      // Usar renderização customizada
+                      return (
+                        <div key={key} className="form-group">
+                          <label htmlFor={key}>
+                            {customField.icon && <span className="field-icon-label">{customField.icon}</span>}
+                            {customField.label}
+                          </label>
+                          {renderField(customField)}
+                        </div>
+                      )
+                    } else {
+                      // Renderização padrão para campos sem configuração
+                      return (
+                        <div key={key} className="form-group">
+                          <label htmlFor={key}>
+                            {key.charAt(0).toUpperCase() + key.slice(1)}
+                          </label>
+                          <input
+                            type="text"
+                            id={key}
+                            name={key}
+                            value={formData[key] || ''}
+                            onChange={handleChange}
+                            placeholder={`Digite ${key}`}
+                          />
+                        </div>
+                      )
+                    }
+                  })}
                 </div>
                 <button className="btn-save" onClick={handleSave}>
                   💾 Salvar Alterações
