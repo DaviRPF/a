@@ -28,8 +28,9 @@ if (process.env.GEMINI_API_KEY) {
     genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
-// Middleware
-app.use(bodyParser.json());
+// Middleware - Aumentar limite para aceitar áudios grandes em base64
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Servir arquivos estáticos do build do React
 app.use(express.static(path.join(__dirname, 'dist')));

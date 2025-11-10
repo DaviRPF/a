@@ -200,38 +200,51 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
       micMediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           micAudioChunksRef.current.push(event.data)
+          console.log('📦 Microfone chunk recebido:', event.data.size, 'bytes')
         }
       }
 
       micMediaRecorder.onstop = () => {
         const blob = new Blob(micAudioChunksRef.current, { type: 'audio/webm' })
         setMicBlob(blob)
-        console.log('✅ Gravação do MICROFONE salva, tamanho:', blob.size)
+        console.log('✅ Gravação do MICROFONE salva, tamanho:', blob.size, 'bytes')
       }
 
-      micMediaRecorder.start()
+      micMediaRecorder.start(1000) // Gravar chunks a cada 1 segundo
       micMediaRecorderRef.current = micMediaRecorder
+      console.log('🎙️ MediaRecorder do microfone iniciado')
 
       // Tentar capturar áudio do sistema
       try {
+        console.log('🔍 Tentando capturar áudio do sistema...')
+
         const systemStream = await navigator.mediaDevices.getDisplayMedia({
-          video: { displaySurface: "monitor" },
+          video: true, // Precisa solicitar vídeo para o navegador permitir
           audio: {
             echoCancellation: false,
             noiseSuppression: false,
-            autoGainControl: false
+            autoGainControl: false,
+            sampleRate: 48000
           },
           preferCurrentTab: false,
-          selfBrowserSurface: "exclude",
           systemAudio: "include"
         })
 
+        console.log('📊 Stream capturado:', {
+          videoTracks: systemStream.getVideoTracks().length,
+          audioTracks: systemStream.getAudioTracks().length
+        })
+
+        // Parar tracks de vídeo (não precisamos do vídeo)
+        systemStream.getVideoTracks().forEach(track => track.stop())
+
         const audioTracks = systemStream.getAudioTracks()
         if (audioTracks.length > 0) {
+          console.log('✅ Áudio do sistema detectado:', audioTracks[0].label)
           systemStreamRef.current = systemStream
+
           const systemAnalyzerData = setupVolumeAnalyzer(systemStream, setSystemVolume, systemAnimationFrameRef)
           systemAnalyserRef.current = systemAnalyzerData
-          console.log('✅ Áudio do sistema capturado')
 
           // Criar MediaRecorder SEPARADO para o sistema
           const systemMediaRecorder = new MediaRecorder(systemStream, {
@@ -241,22 +254,32 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           systemMediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
               systemAudioChunksRef.current.push(event.data)
+              console.log('📦 Sistema chunk recebido:', event.data.size, 'bytes')
             }
           }
 
           systemMediaRecorder.onstop = () => {
             const blob = new Blob(systemAudioChunksRef.current, { type: 'audio/webm' })
             setSystemBlob(blob)
-            console.log('✅ Gravação do SISTEMA salva, tamanho:', blob.size)
+            console.log('✅ Gravação do SISTEMA salva, tamanho:', blob.size, 'bytes')
           }
 
-          systemMediaRecorder.start()
+          systemMediaRecorder.start(1000) // Gravar chunks a cada 1 segundo
           systemMediaRecorderRef.current = systemMediaRecorder
+          console.log('🎙️ MediaRecorder do sistema iniciado')
         } else {
+          console.log('⚠️ Nenhum track de áudio no stream do sistema')
           systemStream.getTracks().forEach(track => track.stop())
         }
       } catch (err) {
         console.log('❌ Áudio do sistema não capturado:', err.message)
+        console.log('💡 Certifique-se de:')
+        console.log('  1. Marcar "Compartilhar áudio da aba/sistema" na janela de compartilhamento')
+        console.log('  2. Usar Chrome/Edge (Firefox não suporta áudio do sistema)')
+        alert('⚠️ Não foi possível capturar o áudio do computador.\n\n' +
+              'IMPORTANTE: Na janela de compartilhamento, marque a opção:\n' +
+              '☑️ "Compartilhar áudio da aba" ou "Compartilhar áudio do sistema"\n\n' +
+              'A gravação continuará apenas com o microfone.')
       }
 
       // Iniciar reconhecimento de voz
