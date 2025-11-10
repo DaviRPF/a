@@ -71,6 +71,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   const systemMediaRecorderRef = useRef(null) // MediaRecorder do sistema
   const micAudioChunksRef = useRef([]) // Chunks do microfone
   const systemAudioChunksRef = useRef([]) // Chunks do sistema
+  const shouldContinueRecognition = useRef(false) // Flag para controlar reconhecimento de voz
 
   const normalizeFieldValue = (fieldName, value) => {
     if (!value) return ''
@@ -117,8 +118,10 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
       setAudioBlob(null)
       setAiAnalysis(null)
       setEditedAnalysis(null)
+      shouldContinueRecognition.current = false
     }
     return () => {
+      shouldContinueRecognition.current = false
       stopRecording()
     }
   }, [isOpen])
@@ -282,17 +285,33 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
 
         recognition.onerror = (event) => {
           console.error('Erro no reconhecimento de voz:', event.error)
-        }
-
-        recognition.onend = () => {
-          if (isRecording && recognitionRef.current) {
-            console.log('Reiniciando reconhecimento de voz...')
-            recognition.start()
+          // Não reiniciar em caso de erro
+          if (event.error === 'aborted' || event.error === 'no-speech') {
+            // Erros normais, pode reiniciar
+            return
           }
         }
 
-        recognition.start()
-        recognitionRef.current = recognition
+        recognition.onend = () => {
+          // Usar ref ao invés de estado para evitar problemas de closure
+          if (shouldContinueRecognition.current) {
+            console.log('Reiniciando reconhecimento de voz...')
+            try {
+              recognition.start()
+            } catch (error) {
+              console.error('Erro ao reiniciar reconhecimento:', error)
+            }
+          }
+        }
+
+        try {
+          recognition.start()
+          recognitionRef.current = recognition
+          shouldContinueRecognition.current = true
+          console.log('✅ Reconhecimento de voz iniciado')
+        } catch (error) {
+          console.error('Erro ao iniciar reconhecimento de voz:', error)
+        }
       }
 
       setIsRecording(true)
@@ -304,6 +323,20 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   }
 
   const stopRecording = async () => {
+    // Desabilitar flag de reconhecimento ANTES de parar
+    shouldContinueRecognition.current = false
+
+    // Parar reconhecimento de voz primeiro
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+        console.log('✅ Reconhecimento de voz parado')
+      } catch (error) {
+        console.error('Erro ao parar reconhecimento:', error)
+      }
+      recognitionRef.current = null
+    }
+
     // Parar MediaRecorders (ambos)
     if (micMediaRecorderRef.current && micMediaRecorderRef.current.state !== 'inactive') {
       micMediaRecorderRef.current.stop()
@@ -324,12 +357,6 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
     if (systemStreamRef.current) {
       systemStreamRef.current.getTracks().forEach(track => track.stop())
       systemStreamRef.current = null
-    }
-
-    // Parar reconhecimento de voz
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-      recognitionRef.current = null
     }
 
     // Parar animações de volume
@@ -833,7 +860,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                 <section className="transcription-section">
                   <h3>📝 Transcrição em Tempo Real</h3>
                   <div className="transcription-box">
-                    {transcription || 'A transcrição aparecerá aqui quando você falar...'}
+                    {realtimeTranscript || 'A transcrição aparecerá aqui quando você falar...'}
                   </div>
                 </section>
               )}
