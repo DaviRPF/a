@@ -43,6 +43,65 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Função para extrair resultados orgânicos do Google manualmente (substitui serp-parser)
+async function parseGoogleResults(page) {
+    try {
+        const results = await page.evaluate(() => {
+            const organic = [];
+
+            // Tentar vários seletores para capturar diferentes layouts do Google
+            const searchResults = document.querySelectorAll('div.g, div[data-sokoban-container], div[jscontroller][data-hveid][lang]');
+
+            for (const result of searchResults) {
+                try {
+                    // Tentar encontrar o link principal
+                    let linkElement = result.querySelector('a[href^="http"]');
+                    if (!linkElement) continue;
+
+                    const url = linkElement.href;
+                    if (!url || url.includes('google.com')) continue;
+
+                    // Tentar encontrar o título
+                    let titleElement = result.querySelector('h3, [role="heading"]');
+                    const title = titleElement ? titleElement.textContent.trim() : '';
+                    if (!title) continue;
+
+                    // Tentar encontrar o snippet/descrição
+                    let snippetElement = result.querySelector('[data-sncf], [data-content-feature], div[style*="-webkit-line-clamp"]');
+                    if (!snippetElement) {
+                        // Fallback: procurar divs com texto
+                        const divs = result.querySelectorAll('div');
+                        for (const div of divs) {
+                            const text = div.textContent.trim();
+                            if (text.length > 50 && text.length < 500 && !text.includes('http')) {
+                                snippetElement = div;
+                                break;
+                            }
+                        }
+                    }
+                    const snippet = snippetElement ? snippetElement.textContent.trim() : '';
+
+                    organic.push({
+                        url: url,
+                        title: title,
+                        snippet: snippet
+                    });
+                } catch (e) {
+                    // Ignorar erros em resultados individuais
+                    continue;
+                }
+            }
+
+            return { organic };
+        });
+
+        return results;
+    } catch (error) {
+        console.error('❌ Erro ao parsear resultados:', error.message);
+        return { organic: [] };
+    }
+}
+
 // Resolver captcha se necessário
 async function solveCaptchaIfNeeded() {
     try {
@@ -74,10 +133,8 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
         // Procurar link com o domínio correto nos resultados usando serp-parser
         console.log(`🔎 Procurando link do domínio: ${domain}`);
 
-        // Usar serp-parser para extrair resultados
-        const html = await page.content();
-        const serp = new GoogleSERP(html);
-        const serpResults = serp.serp;
+        // Parsear resultados do Google usando parsing manual
+        const serpResults = await parseGoogleResults(page);
 
         let targetUrl = null;
 
@@ -86,7 +143,7 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
             for (const result of serpResults.organic) {
                 if (result.url && result.url.includes(domain)) {
                     targetUrl = result.url;
-                    console.log(`✓ Link encontrado com serp-parser: ${targetUrl}`);
+                    console.log(`✓ Link encontrado: ${targetUrl}`);
                     break;
                 }
             }
@@ -94,7 +151,7 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
 
         // Se não encontrou, tentar fallback manual (caso serp-parser falhe)
         if (!targetUrl) {
-            console.log('⚠️ Serp-parser não encontrou, usando fallback...');
+            console.log('⚠️ Parser não encontrou, usando fallback...');
             targetUrl = await page.evaluate((targetDomain) => {
                 const allLinks = document.querySelectorAll('#search a[href], #rso a[href]');
 
@@ -300,16 +357,14 @@ async function checkGoogleMyBusiness(companyName, city, genAI, geminiModel) {
         await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
-        // Usar serp-parser para extrair dados de negócios locais
-        const html = await page.content();
-        const serp = new GoogleSERP(html);
-        const serpResults = serp.serp;
+        // Parsear resultados do Google usando parsing manual
+        const serpResults = await parseGoogleResults(page);
 
         let hasKnowledgePanel = { hasPanel: false, text: '' };
 
         // Verificar se tem dados de negócios locais (locals)
         if (serpResults.locals && serpResults.locals.length > 0) {
-            console.log(`📍 Serp-parser encontrou ${serpResults.locals.length} negócio(s) local(is)`);
+            console.log(`📍 Parser encontrou ${serpResults.locals.length} negócio(s) local(is)`);
 
             // Combinar informações dos negócios locais encontrados
             const localTexts = serpResults.locals.map(local => {
@@ -319,13 +374,13 @@ async function checkGoogleMyBusiness(companyName, city, genAI, geminiModel) {
             hasKnowledgePanel = {
                 hasPanel: true,
                 text: localTexts,
-                source: 'serp-parser'
+                source: 'parser'
             };
         }
 
-        // Fallback: tentar seletores CSS manuais se serp-parser não encontrou
+        // Fallback: tentar seletores CSS manuais se parser não encontrou
         if (!hasKnowledgePanel.hasPanel) {
-            console.log('⚠️ Serp-parser não encontrou locals, usando fallback manual...');
+            console.log('⚠️ Parser não encontrou locals, usando fallback manual...');
             hasKnowledgePanel = await page.evaluate(() => {
                 // Seletores específicos do Knowledge Panel / Local Pack
                 const selectors = [

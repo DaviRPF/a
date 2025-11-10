@@ -53,6 +53,65 @@ let page = null;
 // Helper para substituir waitForTimeout (que foi depreciado)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Função para extrair resultados orgânicos do Google manualmente (substitui serp-parser)
+async function parseGoogleResults(page) {
+    try {
+        const results = await page.evaluate(() => {
+            const organic = [];
+
+            // Tentar vários seletores para capturar diferentes layouts do Google
+            const searchResults = document.querySelectorAll('div.g, div[data-sokoban-container], div[jscontroller][data-hveid][lang]');
+
+            for (const result of searchResults) {
+                try {
+                    // Tentar encontrar o link principal
+                    let linkElement = result.querySelector('a[href^="http"]');
+                    if (!linkElement) continue;
+
+                    const url = linkElement.href;
+                    if (!url || url.includes('google.com')) continue;
+
+                    // Tentar encontrar o título
+                    let titleElement = result.querySelector('h3, [role="heading"]');
+                    const title = titleElement ? titleElement.textContent.trim() : '';
+                    if (!title) continue;
+
+                    // Tentar encontrar o snippet/descrição
+                    let snippetElement = result.querySelector('[data-sncf], [data-content-feature], div[style*="-webkit-line-clamp"]');
+                    if (!snippetElement) {
+                        // Fallback: procurar divs com texto
+                        const divs = result.querySelectorAll('div');
+                        for (const div of divs) {
+                            const text = div.textContent.trim();
+                            if (text.length > 50 && text.length < 500 && !text.includes('http')) {
+                                snippetElement = div;
+                                break;
+                            }
+                        }
+                    }
+                    const snippet = snippetElement ? snippetElement.textContent.trim() : '';
+
+                    organic.push({
+                        url: url,
+                        title: title,
+                        snippet: snippet
+                    });
+                } catch (e) {
+                    // Ignorar erros em resultados individuais
+                    continue;
+                }
+            }
+
+            return { organic };
+        });
+
+        return results;
+    } catch (error) {
+        console.error('❌ Erro ao parsear resultados:', error.message);
+        return { organic: [] };
+    }
+}
+
 // Função para verificar se o browser está ativo
 async function isBrowserActive() {
     if (!browser) return false;
@@ -200,14 +259,10 @@ async function extractInstagramLinksFromPage() {
 
     for (let i = 0; i < retries; i++) {
         try {
-            // Obter o HTML da página
-            const html = await page.content();
+            // Parsear resultados do Google usando parsing manual
+            const results = await parseGoogleResults(page);
 
-            // Parsear com serp-parser
-            const serp = new GoogleSERP(html);
-            const results = serp.serp;
-
-            console.log(`🔍 Serp-parser encontrou ${results.organic?.length || 0} resultados orgânicos`);
+            console.log(`🔍 Parser encontrou ${results.organic?.length || 0} resultados orgânicos`);
 
             const linksFound = [];
 
@@ -550,10 +605,8 @@ async function searchWithAI(companyName, city, searchTerm, genAI, geminiModel) {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
-        // Capturar HTML e parsear com serp-parser
-        const html = await page.content();
-        const serp = new GoogleSERP(html);
-        const serpResults = serp.serp;
+        // Parsear resultados do Google usando parsing manual
+        const serpResults = await parseGoogleResults(page);
 
         // Converter para o formato esperado
         const resultsHTML = [];
@@ -570,7 +623,7 @@ async function searchWithAI(companyName, city, searchTerm, genAI, geminiModel) {
             });
         }
 
-        console.log(`📄 Serp-parser encontrou ${resultsHTML.length} resultados orgânicos`);
+        console.log(`📄 Parser encontrou ${resultsHTML.length} resultados orgânicos`);
 
         if (resultsHTML.length === 0) {
             console.log('⚠️ Nenhum resultado encontrado');
