@@ -6,6 +6,7 @@ import FieldsManager from './components/FieldsManager'
 import AutomationPanel from './components/AutomationPanel'
 import EnhancementPanel from './components/EnhancementPanel'
 import SettingsPanel from './components/SettingsPanel'
+import SchedulesPanel from './components/SchedulesPanel'
 import Toast from './components/Toast'
 import {
   fetchProspects, createProspect, updateProspect, deleteProspect,
@@ -25,6 +26,7 @@ function App() {
   const [showEnhancement, setShowEnhancement] = useState(false)
   const [approvedProspects, setApprovedProspects] = useState([])
   const [showSettings, setShowSettings] = useState(false)
+  const [showSchedules, setShowSchedules] = useState(false)
 
   // Carregar prospects e campos ao montar o componente
   useEffect(() => {
@@ -176,6 +178,12 @@ function App() {
             🤖 Geração Automática
           </button>
           <button
+            className="btn-schedules"
+            onClick={() => setShowSchedules(true)}
+          >
+            📅 Agendamentos
+          </button>
+          <button
             className="btn-config"
             onClick={() => setShowFieldsManager(!showFieldsManager)}
           >
@@ -247,6 +255,13 @@ function App() {
       <SettingsPanel
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      <SchedulesPanel
+        isOpen={showSchedules}
+        onClose={() => setShowSchedules(false)}
+        prospects={prospects}
+        fields={fields}
       />
 
       {toast && <Toast message={toast.message} type={toast.type} />}
