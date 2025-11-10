@@ -24,6 +24,8 @@ const STATUS_COLORS = {
 const ProspectCard = ({ prospect, fields = [], onUpdateStatus, onDelete, onProspect }) => {
   const [isUpdating, setIsUpdating] = useState(false)
 
+  console.log('ProspectCard - onProspect:', onProspect ? 'DEFINIDO' : 'UNDEFINED')
+
   const handleStatusChange = async (e) => {
     setIsUpdating(true)
     await onUpdateStatus(prospect.id, e.target.value)
