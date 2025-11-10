@@ -15,7 +15,8 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   const [isRecording, setIsRecording] = useState(false)
   const [audioBlob, setAudioBlob] = useState(null)
   const [transcription, setTranscription] = useState('')
-  const [realtimeTranscript, setRealtimeTranscript] = useState('') // Transcrição em tempo real (só microfone)
+  const [conversation, setConversation] = useState([]) // Conversa estruturada [{speaker: 'vendedor'|'cliente', text: '...'}]
+  const [realtimeTranscript, setRealtimeTranscript] = useState('') // Transcrição em tempo real (só microfone - preview)
 
   // Estados do fluxo
   const [flowState, setFlowState] = useState('idle') // 'idle', 'recording', 'transcribing', 'approving_transcript', 'approving_analysis', 'viewing_history'
@@ -300,12 +301,25 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           audioBase64
         })
 
-        const fullTranscription = response.data.transcription
+        console.log('✅ Transcrição recebida:', response.data)
 
-        console.log('✅ Transcrição completa:', fullTranscription)
+        // Verificar se recebeu conversa estruturada ou texto simples
+        if (response.data.isStructured && response.data.conversation) {
+          // Conversa estruturada
+          setConversation(response.data.conversation)
+          // Criar texto simples para backup
+          const textTranscription = response.data.conversation
+            .map(msg => `${msg.speaker === 'vendedor' ? 'Vendedor' : 'Cliente'}: ${msg.text}`)
+            .join('\n')
+          setTranscription(textTranscription)
+          console.log(`📊 ${response.data.conversation.length} falas identificadas`)
+        } else {
+          // Texto simples (fallback)
+          setTranscription(response.data.transcription)
+          setConversation([])
+          console.log('📝 Transcrição em texto simples')
+        }
 
-        // Usar a transcrição completa (microfone + sistema)
-        setTranscription(fullTranscription)
         setFlowState('approving_transcript')
       } catch (error) {
         console.error('❌ Erro ao transcrever áudio:', error)
@@ -599,9 +613,31 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           {flowState === 'approving_transcript' && (
             <section className="approval-section">
               <h3>✅ Aprovar Transcrição</h3>
-              <div className="transcription-box">
-                {transcription}
-              </div>
+
+              {/* Exibir conversa estruturada se disponível */}
+              {conversation.length > 0 ? (
+                <div className="conversation-box">
+                  {conversation.map((message, index) => (
+                    <div
+                      key={index}
+                      className={`conversation-message ${message.speaker}`}
+                    >
+                      <div className="message-speaker">
+                        {message.speaker === 'vendedor' ? '🎤 Vendedor' : '📞 Cliente/Atendente'}
+                      </div>
+                      <div className="message-text">
+                        {message.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Fallback: texto simples */
+                <div className="transcription-box">
+                  {transcription}
+                </div>
+              )}
+
               <div className="approval-buttons">
                 <button className="btn-approve" onClick={approveTranscript} disabled={isLoadingAnalysis}>
                   {isLoadingAnalysis ? '⏳ Analisando...' : '✅ Aprovar e Analisar com IA'}

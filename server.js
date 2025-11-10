@@ -302,16 +302,28 @@ app.post('/api/transcribe-audio', async (req, res) => {
         // Remover o prefixo data:audio/webm;base64, se existir
         const base64Audio = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
 
-        const prompt = `Transcreva COMPLETAMENTE este áudio de uma ligação de vendas.
+        const prompt = `Transcreva COMPLETAMENTE este áudio de uma ligação de vendas e retorne em formato JSON.
 
 IMPORTANTE:
-- Transcreva TODAS as vozes que você ouvir (vendedor e cliente/atendente)
-- Identifique quem está falando (Vendedor: ... / Cliente: ... / Atendente: ...)
+- O áudio contém DUAS fontes de áudio separadas:
+  1. VENDEDOR (microfone) - voz mais próxima, clara
+  2. CLIENTE/ATENDENTE (sistema/computador) - voz que vem do telefone/chamada
+- Separe CADA FALA em um objeto distinto
+- Identifique quem está falando analisando a origem do áudio
 - Seja o mais preciso possível
-- Inclua pausas, hesitações se relevantes
 - Transcreva em português do Brasil
 
-RETORNE APENAS A TRANSCRIÇÃO, sem introduções ou explicações.`;
+FORMATO DE RETORNO (JSON):
+{
+  "conversation": [
+    {"speaker": "vendedor", "text": "primeira fala do vendedor"},
+    {"speaker": "cliente", "text": "resposta do cliente"},
+    {"speaker": "vendedor", "text": "próxima fala do vendedor"},
+    ...
+  ]
+}
+
+RETORNE APENAS O JSON, sem introduções ou explicações.`;
 
         const result = await model.generateContent([
             {
@@ -324,12 +336,35 @@ RETORNE APENAS A TRANSCRIÇÃO, sem introduções ou explicações.`;
         ]);
 
         const response = await result.response;
-        const transcription = response.text().trim();
+        let transcriptionText = response.text().trim();
 
         console.log('✅ Áudio transcrito com sucesso');
-        console.log('📝 Transcrição:', transcription.substring(0, 200) + '...');
+        console.log('📝 Resposta bruta:', transcriptionText.substring(0, 200) + '...');
 
-        res.json({ transcription });
+        // Limpar markdown se houver
+        transcriptionText = transcriptionText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        try {
+            // Tentar parsear como JSON
+            const conversationData = JSON.parse(transcriptionText);
+
+            if (conversationData.conversation && Array.isArray(conversationData.conversation)) {
+                console.log(`📊 ${conversationData.conversation.length} falas identificadas`);
+                res.json({
+                    conversation: conversationData.conversation,
+                    isStructured: true
+                });
+            } else {
+                throw new Error('Formato inválido');
+            }
+        } catch (parseError) {
+            console.log('⚠️ Não foi possível parsear JSON, retornando texto simples');
+            // Fallback: retornar como texto simples
+            res.json({
+                transcription: transcriptionText,
+                isStructured: false
+            });
+        }
     } catch (error) {
         console.error('❌ Erro ao transcrever áudio:', error);
         res.status(500).json({ error: 'Erro ao transcrever áudio: ' + error.message });
