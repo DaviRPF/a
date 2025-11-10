@@ -203,11 +203,20 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
                       )}
                     </div>
 
+                    {/* DEBUG: Mostrar todos os campos do prospect.data */}
+                    <details style={{ margin: '10px 0', padding: '10px', background: '#f0f0f0', borderRadius: '4px' }}>
+                      <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>🔍 DEBUG - Ver todos os campos</summary>
+                      <pre style={{ fontSize: '11px', maxHeight: '200px', overflow: 'auto', marginTop: '10px' }}>
+                        {JSON.stringify(prospect.data, null, 2)}
+                      </pre>
+                    </details>
+
                     <div className="prospect-preview-data">
                       {/* Mostrar TODOS os campos que têm valor */}
                       {fields.map(field => {
                         const value = prospect.data[field.id]
-                        if (!value) return null
+                        // Não pular campos vazios para campos de enhancement - eles podem ter valores default
+                        if (!value && value !== 0 && value !== false) return null
 
                         // Pular campos de URL que serão exibidos como links em outros campos
                         if (field.id === 'fonteUrl' || field.id === 'googleMeuNegocioUrl') {
