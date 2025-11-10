@@ -447,9 +447,12 @@ TAREFA: Analise a ligação e extraia as seguintes informações:
 
 2. **Horário/Dia que o Decisor Está Presente**: Se o atendente informou quando o decisor está disponível (ex: "Ele chega às 14h", "Vem segunda e quarta"). Deixe vazio se não informou.
 
-3. **Data e Horário da Reunião**: Se marcou uma reunião, extraia data e horário (ex: "Segunda-feira, 15/01 às 14h"). Deixe vazio se não marcou.
+3. **Data e Horário da Reunião**: Se marcou uma reunião, extraia data e horário em formato ISO 8601 (YYYY-MM-DDTHH:mm). Exemplos:
+   - "Segunda-feira, 15/01/2025 às 14h" → "2025-01-15T14:00"
+   - "Amanhã às 10h" → calcular data e retornar "2025-01-11T10:00"
+   - Se a data exata não foi mencionada, deixe vazio
 
-4. **Contato Pessoal do Decisor**: Se o decisor forneceu número de telefone pessoal, WhatsApp ou celular. Deixe vazio se não forneceu.
+4. **Contato Pessoal do Decisor**: Se o decisor forneceu número de telefone pessoal, WhatsApp ou celular, retorne no formato brasileiro (XX) XXXXX-XXXX. Deixe vazio se não forneceu.
 
 5. **Motivo da Objeção do Decisor**: Se o decisor recusou, qual foi o motivo? (ex: "Não tem interesse", "Já tem fornecedor", "Sem tempo"). Deixe vazio se não houve objeção ou não falou com decisor.
 
@@ -458,7 +461,9 @@ TAREFA: Analise a ligação e extraia as seguintes informações:
 IMPORTANTE:
 - Se não houver informação para algum campo, deixe VAZIO (string vazia "")
 - Seja preciso e extraia exatamente o que foi dito na ligação
-- Para horários/datas, mantenha o formato natural (ex: "Segunda às 14h", "15/01/2025 às 10h30")
+- Para datas/horários de reunião, use SEMPRE formato ISO 8601: YYYY-MM-DDTHH:mm
+- Para telefones, use formato brasileiro: (XX) XXXXX-XXXX
+- Para horário do decisor, pode usar formato natural (ex: "Segunda às 14h")
 
 RETORNE APENAS JSON:
 {

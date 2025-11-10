@@ -72,9 +72,38 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   const micAudioChunksRef = useRef([]) // Chunks do microfone
   const systemAudioChunksRef = useRef([]) // Chunks do sistema
 
+  const normalizeFieldValue = (fieldName, value) => {
+    if (!value) return ''
+
+    // Normalizar datas para formato datetime-local (YYYY-MM-DDTHH:mm)
+    if (fieldName.includes('data') || fieldName.includes('Data') ||
+        (fieldName.includes('dia') && fieldName.includes('horario'))) {
+      try {
+        // Se já estiver no formato ISO, usar direto
+        if (value.includes('T')) {
+          return value.slice(0, 16) // YYYY-MM-DDTHH:mm
+        }
+        // Tentar parsear texto livre para data
+        const parsedDate = new Date(value)
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate.toISOString().slice(0, 16)
+        }
+      } catch (e) {
+        // Se não conseguir parsear, retornar valor original
+      }
+    }
+
+    return value
+  }
+
   useEffect(() => {
     if (prospect) {
-      setFormData({ ...prospect })
+      // Normalizar todos os valores ao carregar
+      const normalizedData = {}
+      Object.keys(prospect).forEach(key => {
+        normalizedData[key] = normalizeFieldValue(key, prospect[key])
+      })
+      setFormData(normalizedData)
       loadCallHistory()
     }
   }, [prospect])
@@ -533,6 +562,110 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
     }
   }
 
+  const getFieldType = (fieldName) => {
+    // Definir tipo de input baseado no nome do campo
+    if (fieldName.includes('data') || fieldName.includes('Data') ||
+        fieldName.includes('dia') && fieldName.includes('horario')) {
+      return 'datetime-local'
+    }
+    if (fieldName.includes('telefone') || fieldName.includes('Telefone') ||
+        fieldName.includes('contato') && fieldName.includes('Pessoal')) {
+      return 'tel'
+    }
+    if (fieldName.includes('email') || fieldName.includes('Email')) {
+      return 'email'
+    }
+    if (fieldName.includes('Url') || fieldName.includes('site') || fieldName.includes('Site')) {
+      return 'url'
+    }
+    if (fieldName.includes('motivo') || fieldName.includes('Motivo') ||
+        fieldName.includes('observacoes') || fieldName.includes('socios')) {
+      return 'textarea'
+    }
+    if (fieldName === 'status' || fieldName === 'googleMeuNegocio' || fieldName === 'porte') {
+      return 'select'
+    }
+    return 'text'
+  }
+
+  const renderSmartField = (fieldName, label) => {
+    const fieldType = getFieldType(fieldName)
+    const commonProps = {
+      id: fieldName,
+      name: fieldName,
+      value: formData[fieldName] || '',
+      onChange: handleChange
+    }
+
+    // Campos de seleção específicos
+    if (fieldName === 'status') {
+      return (
+        <select {...commonProps}>
+          <option value="">Selecione...</option>
+          <option value="Não contatado ainda">Não contatado ainda</option>
+          <option value="Contato com o atendente">Contato com o atendente</option>
+          <option value="Contato com o decisor">Contato com o decisor</option>
+          <option value="Objeção do atendente">Objeção do atendente</option>
+          <option value="Objeção do decisor">Objeção do decisor</option>
+          <option value="Reunião marcada">Reunião marcada</option>
+        </select>
+      )
+    }
+
+    if (fieldName === 'googleMeuNegocio') {
+      return (
+        <select {...commonProps}>
+          <option value="">Selecione...</option>
+          <option value="Sim">Sim</option>
+          <option value="Não">Não</option>
+        </select>
+      )
+    }
+
+    if (fieldName === 'porte') {
+      return (
+        <select {...commonProps}>
+          <option value="">Selecione...</option>
+          <option value="MEI">MEI</option>
+          <option value="ME">ME (Microempresa)</option>
+          <option value="EPP">EPP (Pequeno Porte)</option>
+          <option value="Médio">Médio Porte</option>
+          <option value="Grande">Grande Porte</option>
+        </select>
+      )
+    }
+
+    // Textarea para campos longos
+    if (fieldType === 'textarea') {
+      return (
+        <textarea
+          {...commonProps}
+          rows="3"
+          placeholder={`Digite ${label.toLowerCase()}`}
+        />
+      )
+    }
+
+    // Input de data/hora
+    if (fieldType === 'datetime-local') {
+      return (
+        <input
+          {...commonProps}
+          type="datetime-local"
+        />
+      )
+    }
+
+    // Inputs especializados (tel, email, url)
+    return (
+      <input
+        {...commonProps}
+        type={fieldType}
+        placeholder={`Digite ${label.toLowerCase()}`}
+      />
+    )
+  }
+
   const renderField = (field) => {
     const commonProps = {
       id: field.id,
@@ -609,7 +742,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                         </div>
                       )
                     } else {
-                      // Renderização padrão para campos sem configuração
+                      // Renderização inteligente baseada no tipo de campo
                       // Criar label mais amigável
                       const label = key
                         .replace(/([A-Z])/g, ' $1') // Adiciona espaço antes de maiúsculas
@@ -621,14 +754,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                           <label htmlFor={key}>
                             {label}
                           </label>
-                          <input
-                            type="text"
-                            id={key}
-                            name={key}
-                            value={formData[key] || ''}
-                            onChange={handleChange}
-                            placeholder={`Digite ${label.toLowerCase()}`}
-                          />
+                          {renderSmartField(key, label)}
                         </div>
                       )
                     }
