@@ -20,6 +20,7 @@ const FIELDS_CONFIG_FILE = path.join(__dirname, 'fields-config.json');
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
 const BUSINESS_TYPES_FILE = path.join(__dirname, 'business-types.json');
 const PENDING_PROSPECTS_FILE = path.join(__dirname, 'pending-prospects.json');
+const CALL_HISTORY_FILE = path.join(__dirname, 'call-history.json');
 
 // Inicializar Gemini AI
 let genAI = null;
@@ -59,7 +60,13 @@ const DEFAULT_FIELDS = [
     { id: 'fonteUrl', label: 'URL da Fonte', type: 'text', required: false, icon: '🔗' },
     { id: 'googleMeuNegocio', label: 'Tem Google Meu Negócio?', type: 'select', required: false, icon: '🌐', options: ['Sim', 'Não'] },
     { id: 'googleMeuNegocioUrl', label: 'URL Google Meu Negócio', type: 'text', required: false, icon: '🔗' },
-    { id: 'presencaRedeSocial', label: 'Tem Presença na Rede Social?', type: 'select', required: true, icon: '👥', options: ['Sim', 'Não'] }
+    { id: 'presencaRedeSocial', label: 'Tem Presença na Rede Social?', type: 'select', required: true, icon: '👥', options: ['Sim', 'Não'] },
+    { id: 'cidade', label: 'Cidade', type: 'text', required: false, icon: '🏙️' },
+    { id: 'horarioDiaDecisorPresente', label: 'Horário/Dia que o Decisor Está Presente', type: 'textarea', required: false, icon: '⏰' },
+    { id: 'diaHorarioReuniao', label: 'Data e Horário da Reunião', type: 'text', required: false, icon: '📅' },
+    { id: 'contatoPessoalDecisor', label: 'Contato Pessoal do Decisor', type: 'tel', required: false, icon: '📱' },
+    { id: 'motivoObjecaoDecisor', label: 'Motivo da Objeção do Decisor', type: 'textarea', required: false, icon: '❌' },
+    { id: 'motivoObjecaoAtendente', label: 'Motivo da Objeção do Atendente', type: 'textarea', required: false, icon: '🚫' }
 ];
 
 // Configuração padrão de settings
@@ -90,6 +97,11 @@ if (!fs.existsSync(BUSINESS_TYPES_FILE)) {
 // Inicializar arquivo de prospects pendentes se não existir
 if (!fs.existsSync(PENDING_PROSPECTS_FILE)) {
     fs.writeFileSync(PENDING_PROSPECTS_FILE, JSON.stringify([], null, 2));
+}
+
+// Inicializar arquivo de histórico de chamadas se não existir
+if (!fs.existsSync(CALL_HISTORY_FILE)) {
+    fs.writeFileSync(CALL_HISTORY_FILE, JSON.stringify({}, null, 2));
 }
 
 // Função para ler prospects
@@ -145,6 +157,36 @@ function readPendingProspects() {
 // Função para salvar prospects pendentes
 function savePendingProspects(prospects) {
     fs.writeFileSync(PENDING_PROSPECTS_FILE, JSON.stringify(prospects, null, 2));
+}
+
+// Função para ler histórico de chamadas
+function readCallHistory() {
+    const data = fs.readFileSync(CALL_HISTORY_FILE, 'utf8');
+    return JSON.parse(data);
+}
+
+// Função para salvar histórico de chamadas
+function saveCallHistory(history) {
+    fs.writeFileSync(CALL_HISTORY_FILE, JSON.stringify(history, null, 2));
+}
+
+// Função para adicionar chamada ao histórico de um prospect
+function addCallToHistory(prospectId, callData) {
+    const history = readCallHistory();
+
+    if (!history[prospectId]) {
+        history[prospectId] = [];
+    }
+
+    history[prospectId].push(callData);
+    saveCallHistory(history);
+    return callData;
+}
+
+// Função para pegar histórico de um prospect específico
+function getProspectCallHistory(prospectId) {
+    const history = readCallHistory();
+    return history[prospectId] || [];
 }
 
 // GET - Listar todos os prospects
@@ -224,6 +266,152 @@ app.delete('/api/prospects/:id', (req, res) => {
         res.json({ message: 'Prospect removido com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao remover prospect' });
+    }
+});
+
+// ============= ROTAS DE HISTÓRICO DE CHAMADAS =============
+
+// GET - Pegar histórico de chamadas de um prospect
+app.get('/api/prospects/:id/call-history', (req, res) => {
+    try {
+        const history = getProspectCallHistory(req.params.id);
+        res.json(history);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao ler histórico de chamadas' });
+    }
+});
+
+// POST - Analisar transcrição com IA e sugerir campos
+app.post('/api/prospects/:id/analyze-call', async (req, res) => {
+    try {
+        const { transcript } = req.body;
+
+        if (!transcript) {
+            return res.status(400).json({ error: 'Transcrição não fornecida' });
+        }
+
+        if (!genAI) {
+            return res.status(500).json({ error: 'Gemini AI não configurado' });
+        }
+
+        const settings = readSettings();
+        const model = genAI.getGenerativeModel({ model: settings.geminiModel });
+
+        const prompt = `Você é um assistente que analisa transcrições de ligações de vendas e extrai informações importantes.
+
+TRANSCRIÇÃO DA LIGAÇÃO:
+${transcript}
+
+TAREFA: Analise a ligação e extraia as seguintes informações:
+
+1. **Status da ligação** (escolha APENAS UMA opção):
+   - "Contato com o atendente" - se falou apenas com atendente
+   - "Contato com o decisor" - se falou com o decisor (dono, gerente, responsável)
+   - "Objeção do atendente" - se o atendente bloqueou/não passou a ligação
+   - "Objeção do decisor" - se o decisor recusou a proposta
+   - "Reunião marcada" - se agendou uma reunião com o decisor
+   - "Não contatado ainda" - se não conseguiu falar com ninguém
+
+2. **Horário/Dia que o Decisor Está Presente**: Se o atendente informou quando o decisor está disponível (ex: "Ele chega às 14h", "Vem segunda e quarta"). Deixe vazio se não informou.
+
+3. **Data e Horário da Reunião**: Se marcou uma reunião, extraia data e horário (ex: "Segunda-feira, 15/01 às 14h"). Deixe vazio se não marcou.
+
+4. **Contato Pessoal do Decisor**: Se o decisor forneceu número de telefone pessoal, WhatsApp ou celular. Deixe vazio se não forneceu.
+
+5. **Motivo da Objeção do Decisor**: Se o decisor recusou, qual foi o motivo? (ex: "Não tem interesse", "Já tem fornecedor", "Sem tempo"). Deixe vazio se não houve objeção ou não falou com decisor.
+
+6. **Motivo da Objeção do Atendente**: Se o atendente bloqueou a ligação, qual foi o motivo? (ex: "Decisor não está", "Não aceita ligações de vendas"). Deixe vazio se não houve objeção do atendente.
+
+IMPORTANTE:
+- Se não houver informação para algum campo, deixe VAZIO (string vazia "")
+- Seja preciso e extraia exatamente o que foi dito na ligação
+- Para horários/datas, mantenha o formato natural (ex: "Segunda às 14h", "15/01/2025 às 10h30")
+
+RETORNE APENAS JSON:
+{
+  "status": "um dos status listados acima",
+  "horarioDiaDecisorPresente": "horário/dia ou vazio",
+  "diaHorarioReuniao": "data/horário ou vazio",
+  "contatoPessoalDecisor": "telefone ou vazio",
+  "motivoObjecaoDecisor": "motivo ou vazio",
+  "motivoObjecaoAtendente": "motivo ou vazio"
+}`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let aiText = response.text().trim();
+
+        // Remover markdown code blocks se houver
+        aiText = aiText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        const analysis = JSON.parse(aiText);
+
+        console.log('🤖 Análise da IA:', analysis);
+
+        res.json(analysis);
+    } catch (error) {
+        console.error('❌ Erro ao analisar chamada:', error);
+        res.status(500).json({ error: 'Erro ao analisar chamada: ' + error.message });
+    }
+});
+
+// POST - Salvar chamada aprovada no histórico
+app.post('/api/prospects/:id/save-call', async (req, res) => {
+    try {
+        const { audioBlob, transcript, analysis } = req.body;
+        const prospectId = req.params.id;
+
+        if (!transcript) {
+            return res.status(400).json({ error: 'Transcrição não fornecida' });
+        }
+
+        // Criar registro da chamada
+        const callData = {
+            id: Date.now().toString(),
+            date: new Date().toISOString(),
+            audioBlob: audioBlob || null,
+            transcript: transcript,
+            analysis: analysis || {}
+        };
+
+        // Adicionar ao histórico
+        addCallToHistory(prospectId, callData);
+
+        // Se a análise contém campos, atualizar o prospect
+        if (analysis && Object.keys(analysis).length > 0) {
+            const prospects = readProspects();
+            const prospectIndex = prospects.findIndex(p => p.id === prospectId);
+
+            if (prospectIndex !== -1) {
+                // Atualizar status se fornecido
+                if (analysis.status) {
+                    prospects[prospectIndex].status = analysis.status;
+                }
+
+                // Atualizar campos da análise
+                const fieldsToUpdate = [
+                    'horarioDiaDecisorPresente',
+                    'diaHorarioReuniao',
+                    'contatoPessoalDecisor',
+                    'motivoObjecaoDecisor',
+                    'motivoObjecaoAtendente'
+                ];
+
+                fieldsToUpdate.forEach(field => {
+                    if (analysis[field]) {
+                        prospects[prospectIndex][field] = analysis[field];
+                    }
+                });
+
+                saveProspects(prospects);
+                console.log(`✅ Prospect ${prospectId} atualizado com análise da chamada`);
+            }
+        }
+
+        res.json({ success: true, call: callData });
+    } catch (error) {
+        console.error('❌ Erro ao salvar chamada:', error);
+        res.status(500).json({ error: 'Erro ao salvar chamada: ' + error.message });
     }
 });
 
