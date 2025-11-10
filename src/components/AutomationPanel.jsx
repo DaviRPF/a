@@ -247,16 +247,18 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
     )
   }
 
-  const handleSaveApproved = async () => {
+  const handleFinalize = async () => {
     const approvedProspects = foundProspects.filter(p => p.approved)
 
+    // Salvar prospects pendentes (não aprovados nem recusados) antes
+    await savePendingProspects()
+
     if (approvedProspects.length === 0) {
-      alert('Nenhum prospect aprovado')
+      // Se não tem aprovados, só salva pendentes e mostra mensagem
+      setStatusMessage('Nenhum prospect aprovado. Pendentes salvos.')
+      setTimeout(() => setStatusMessage(''), 3000)
       return
     }
-
-    // Salvar prospects pendentes (não aprovados nem recusados) antes de enviar aprovados
-    await savePendingProspects()
 
     // Enviar prospects aprovados para aperfeiçoamento (objeto completo com id, data, etc)
     onApproveProspects(approvedProspects)
@@ -426,9 +428,11 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
               <div className="prospects-header">
                 <h3>Prospects Encontrados ({foundProspects.length})</h3>
                 <div className="prospects-actions">
-                  <button className="btn-save-approved" onClick={handleSaveApproved}>
-                    💾 Salvar Aprovados ({foundProspects.filter(p => p.approved).length})
-                  </button>
+                  {!isSearching && (
+                    <button className="btn-finalize" onClick={handleFinalize}>
+                      ✨ Finalizar ({foundProspects.filter(p => p.approved).length} aprovados)
+                    </button>
+                  )}
                   {foundProspects.filter(p => p.rejected).length > 0 && (
                     <button className="btn-clear-rejected" onClick={handleClearRejected}>
                       🗑️ Limpar Recusados ({foundProspects.filter(p => p.rejected).length})
