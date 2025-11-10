@@ -4,6 +4,36 @@ import { updateProspect } from '../services/api'
 import '../styles/ProspectCallModal.css'
 
 const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate }) => {
+  // Lista completa de todos os campos possíveis de um prospect
+  const allPossibleFields = [
+    'status',
+    'nome',
+    'telefone',
+    'instagram',
+    'cidade',
+    'cnpj',
+    'endereco',
+    'nicho',
+    'email',
+    'site',
+    'telefonesEncontrados',
+    'googleMeuNegocio',
+    'googleMeuNegocioUrl',
+    'capitalSocial',
+    'porte',
+    'socios',
+    'fonte',
+    'fonteUrl',
+    'horarioDiaDecisorPresente',
+    'diaHorarioReuniao',
+    'contatoPessoalDecisor',
+    'motivoObjecaoDecisor',
+    'motivoObjecaoAtendente',
+    'observacoes',
+    'dataProximoContato',
+    'responsavel'
+  ]
+
   // Estados existentes
   const [formData, setFormData] = useState({})
   const [audioDevices, setAudioDevices] = useState([])
@@ -562,11 +592,8 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
               <section className="prospect-info-section">
                 <h3>📋 Informações do Prospect</h3>
                 <div className="form-grid">
-                  {/* Renderizar TODAS as propriedades do prospect */}
-                  {Object.keys(formData).map(key => {
-                    // Ignorar campos de sistema
-                    if (key === 'id' || key === 'createdAt') return null
-
+                  {/* Renderizar TODOS os campos possíveis */}
+                  {allPossibleFields.map(key => {
                     // Verificar se existe campo customizado
                     const customField = fields.find(f => f.id === key)
 
@@ -583,10 +610,16 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                       )
                     } else {
                       // Renderização padrão para campos sem configuração
+                      // Criar label mais amigável
+                      const label = key
+                        .replace(/([A-Z])/g, ' $1') // Adiciona espaço antes de maiúsculas
+                        .replace(/^./, str => str.toUpperCase()) // Primeira letra maiúscula
+                        .trim()
+
                       return (
                         <div key={key} className="form-group">
                           <label htmlFor={key}>
-                            {key.charAt(0).toUpperCase() + key.slice(1)}
+                            {label}
                           </label>
                           <input
                             type="text"
@@ -594,7 +627,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                             name={key}
                             value={formData[key] || ''}
                             onChange={handleChange}
-                            placeholder={`Digite ${key}`}
+                            placeholder={`Digite ${label.toLowerCase()}`}
                           />
                         </div>
                       )
