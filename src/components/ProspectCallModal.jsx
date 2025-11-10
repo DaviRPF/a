@@ -562,7 +562,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
               <section className="prospect-info-section">
                 <h3>📋 Informações do Prospect</h3>
                 <div className="form-grid">
-                  {fields.slice(0, 5).map(field => (
+                  {fields.map(field => (
                     <div key={field.id} className="form-group">
                       <label htmlFor={field.id}>
                         {field.icon && <span className="field-icon-label">{field.icon}</span>}
