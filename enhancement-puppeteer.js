@@ -73,17 +73,51 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
         // Procurar link com o domínio correto nos resultados
         console.log(`🔎 Procurando link do domínio: ${domain}`);
 
-        // MÉTODO CORRIGIDO: Encontrar o URL do link primeiro
+        // MÉTODO CORRIGIDO: Usar seletores específicos da estrutura do Google
         const targetUrl = await page.evaluate((targetDomain) => {
-            // Procurar todos os links de resultados do Google
-            const resultLinks = Array.from(document.querySelectorAll('a'));
+            // Seletores específicos dos resultados orgânicos do Google
+            const resultSelectors = [
+                '#search .g a',           // Resultados principais
+                '.yuRUbf > a',            // Link principal de cada resultado
+                '#rso .g a[href]',        // Resultados orgânicos
+                'a[jsname][data-ved]',    // Links com atributos específicos do Google
+                '#search a[ping]'         // Links rastreados pelo Google
+            ];
 
-            for (const link of resultLinks) {
+            // Tentar cada seletor
+            for (const selector of resultSelectors) {
+                const links = document.querySelectorAll(selector);
+
+                for (const link of links) {
+                    const href = link.href;
+
+                    // Verificar se é um resultado válido (não é do Google)
+                    if (!href || href.includes('google.com') || href.includes('youtube.com')) {
+                        continue;
+                    }
+
+                    // Verificar se contém o domínio alvo
+                    if (href.includes(targetDomain)) {
+                        console.log('✓ Link encontrado (seletor:', selector, '):', href);
+                        return href;
+                    }
+                }
+            }
+
+            // Fallback: procurar em todos os links, mas filtrando melhor
+            console.log('⚠️ Usando fallback - procurando em todos os links...');
+            const allLinks = document.querySelectorAll('#search a[href], #rso a[href]');
+
+            for (const link of allLinks) {
                 const href = link.href;
 
-                // Verificar se o link contém o domínio alvo
-                if (href && href.includes(targetDomain) && !href.includes('google.com')) {
-                    console.log('Link encontrado:', href);
+                if (href &&
+                    href.includes(targetDomain) &&
+                    !href.includes('google.com') &&
+                    !href.includes('youtube.com') &&
+                    !href.includes('translate.google') &&
+                    !href.includes('webcache.google')) {
+                    console.log('✓ Link encontrado (fallback):', href);
                     return href;
                 }
             }
@@ -275,26 +309,58 @@ async function checkGoogleMyBusiness(companyName, city, genAI, geminiModel) {
         await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
-        // Verificar se tem Knowledge Panel
+        // Verificar se tem Knowledge Panel (Google Meu Negócio)
         const hasKnowledgePanel = await page.evaluate(() => {
-            // Procurar por diversos seletores que indicam Knowledge Panel
+            // Seletores específicos do Knowledge Panel / Local Pack
             const selectors = [
+                // Knowledge Panel principal
                 '[data-attrid="kc:/local:one box"]',
-                '[class*="knowledge"]',
                 '.kp-wholepage',
-                '[data-attrid*="kc:"]',
+                '[data-attrid*="kc:/location"]',
+
+                // Local Pack (card lateral direito)
+                '[jsname="pubmh"]',
                 '.cu-container',
-                '[jsname="pubmh"]'
+                '[data-attrid="kc:/local:place"]',
+
+                // Informações de local/negócio
+                '[class*="knowledge"]',
+                '[data-attrid*="kc:"]',
+                '.mod[data-md]',
+
+                // Novos seletores (estrutura atual do Google)
+                '#rhs_block [data-attrid]',
+                '.knowledge-panel',
+                '[aria-label*="lugar"]',
+                '[aria-label*="business"]'
             ];
 
+            // Tentar cada seletor
             for (const selector of selectors) {
-                const element = document.querySelector(selector);
-                if (element && element.innerText.length > 100) {
-                    return {
-                        hasPanel: true,
-                        text: element.innerText
-                    };
+                try {
+                    const element = document.querySelector(selector);
+                    if (element && element.innerText.length > 100) {
+                        console.log('✓ Knowledge Panel encontrado (seletor:', selector, ')');
+                        return {
+                            hasPanel: true,
+                            text: element.innerText,
+                            selector: selector
+                        };
+                    }
+                } catch (e) {
+                    continue;
                 }
+            }
+
+            // Fallback: procurar por elementos com muito texto no lado direito
+            const rhsContent = document.querySelector('#rhs, #rhs_block');
+            if (rhsContent && rhsContent.innerText.length > 200) {
+                console.log('✓ Conteúdo do lado direito encontrado (possível Knowledge Panel)');
+                return {
+                    hasPanel: true,
+                    text: rhsContent.innerText,
+                    selector: 'fallback-rhs'
+                };
             }
 
             return { hasPanel: false };
