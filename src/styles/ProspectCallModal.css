@@ -296,6 +296,207 @@
   background: #c82333;
 }
 
+/* Seção de Aprovação */
+.approval-section {
+  background: #fff3cd !important;
+  border: 2px solid #ffc107;
+}
+
+.approval-subtitle {
+  color: #856404;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+}
+
+.approval-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.btn-approve {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  flex: 1;
+}
+
+.btn-approve:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
+}
+
+.btn-approve:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-reject {
+  background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  flex: 1;
+}
+
+.btn-reject:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(235, 51, 73, 0.3);
+}
+
+.btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.analysis-form {
+  display: grid;
+  gap: 16px;
+}
+
+.analysis-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.analysis-form label {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #555;
+}
+
+.analysis-form input,
+.analysis-form select,
+.analysis-form textarea {
+  padding: 10px 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.analysis-form input:focus,
+.analysis-form select:focus,
+.analysis-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* Histórico de Chamadas */
+.call-history-section {
+  background: #e7f3ff !important;
+  border: 2px solid #2196F3;
+}
+
+.call-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.call-history-item {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  transition: box-shadow 0.3s;
+}
+
+.call-history-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.call-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  color: #333;
+  padding: 8px 0;
+}
+
+.call-summary::-webkit-details-marker {
+  display: none;
+}
+
+.call-date {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.call-status {
+  background: #667eea;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.call-details {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.call-audio label,
+.call-transcript label,
+.call-analysis label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #555;
+}
+
+.call-audio audio {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.call-transcript p {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  line-height: 1.6;
+  color: #333;
+  white-space: pre-wrap;
+}
+
+.call-analysis ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.call-analysis li {
+  padding: 8px 12px;
+  background: #f8f9fa;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.call-analysis li strong {
+  color: #667eea;
+  margin-right: 8px;
+}
+
 /* Responsivo */
 @media (max-width: 768px) {
   .prospect-call-modal {
