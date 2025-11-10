@@ -509,10 +509,23 @@ export async function extractInstagramData(username) {
                 return element ? element.textContent.trim() : '';
             };
 
-            // Tentar pegar o nome do negócio
-            const name = getMetaContent('og:title') ||
-                        getTextContent('header section h2') ||
-                        getTextContent('header h1');
+            // Tentar pegar o nome do negócio de várias formas
+            let name = getMetaContent('og:title');
+
+            // Remover username do título se estiver no formato "Nome (@username)"
+            if (name) {
+                name = name.replace(/\s*\(@[^)]+\)\s*•\s*Instagram\s*photos\s*and\s*videos/i, '').trim();
+                name = name.replace(/\s*•\s*Instagram\s*photos\s*and\s*videos/i, '').trim();
+                name = name.replace(/\(@[^)]+\)/g, '').trim();
+            }
+
+            // Fallback para outros seletores
+            if (!name || name === '') {
+                name = getTextContent('header section h2') ||
+                       getTextContent('header h1') ||
+                       getTextContent('h1') ||
+                       '';
+            }
 
             // Tentar pegar a bio
             const bio = getMetaContent('og:description') ||
@@ -529,14 +542,19 @@ export async function extractInstagramData(username) {
             // Verificar se tem presença em redes sociais (se está no Instagram, é sim)
             const hasSocialMedia = 'Sim';
 
+            console.log('DEBUG - Nome extraído:', name);
+            console.log('DEBUG - Bio:', bio);
+
             return {
-                name: name.replace(/\(@.*\)/, '').trim(),
+                name: name || '',
                 bio: bio,
                 phone: phone,
                 hasSocialMedia: hasSocialMedia,
                 rawText: `${name}\n${bio}`
             };
         });
+
+        console.log(`✅ Dados extraídos de @${username}:`, { nome: data.name, bio: data.bio?.substring(0, 50) });
 
         return {
             instagram: username,
