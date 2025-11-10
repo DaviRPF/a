@@ -4,34 +4,36 @@ import { updateProspect } from '../services/api'
 import '../styles/ProspectCallModal.css'
 
 const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate }) => {
-  // Lista completa de todos os campos possíveis de um prospect
-  const allPossibleFields = [
-    'status',
-    'nome',
-    'telefone',
-    'instagram',
-    'cidade',
-    'cnpj',
-    'endereco',
-    'nicho',
-    'email',
-    'site',
-    'telefonesEncontrados',
-    'googleMeuNegocio',
-    'googleMeuNegocioUrl',
-    'capitalSocial',
-    'porte',
-    'socios',
-    'fonte',
-    'fonteUrl',
-    'horarioDiaDecisorPresente',
-    'diaHorarioReuniao',
-    'contatoPessoalDecisor',
-    'motivoObjecaoDecisor',
-    'motivoObjecaoAtendente',
-    'observacoes',
-    'dataProximoContato',
-    'responsavel'
+  // Campos organizados por categoria
+  const fieldCategories = [
+    {
+      name: '📇 Informações Básicas',
+      fields: ['status', 'nome', 'telefone', 'email', 'instagram']
+    },
+    {
+      name: '📍 Localização',
+      fields: ['cidade', 'endereco']
+    },
+    {
+      name: '🏢 Dados Empresariais',
+      fields: ['cnpj', 'porte', 'capitalSocial', 'socios', 'nicho']
+    },
+    {
+      name: '🌐 Presença Online',
+      fields: ['googleMeuNegocio', 'googleMeuNegocioUrl', 'site', 'fonte', 'fonteUrl']
+    },
+    {
+      name: '📞 Contatos Adicionais',
+      fields: ['telefonesEncontrados', 'contatoPessoalDecisor']
+    },
+    {
+      name: '📊 Análise da Ligação',
+      fields: ['horarioDiaDecisorPresente', 'diaHorarioReuniao', 'motivoObjecaoDecisor', 'motivoObjecaoAtendente']
+    },
+    {
+      name: '📝 Outras Informações',
+      fields: ['observacoes', 'dataProximoContato', 'responsavel']
+    }
   ]
 
   // Estados existentes
@@ -801,42 +803,49 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
               {/* Informações do Prospect */}
               <section className="prospect-info-section">
                 <h3>📋 Informações do Prospect</h3>
-                <div className="form-grid">
-                  {/* Renderizar TODOS os campos possíveis */}
-                  {allPossibleFields.map(key => {
-                    // Verificar se existe campo customizado
-                    const customField = fields.find(f => f.id === key)
 
-                    if (customField) {
-                      // Usar renderização customizada
-                      return (
-                        <div key={key} className="form-group">
-                          <label htmlFor={key}>
-                            {customField.icon && <span className="field-icon-label">{customField.icon}</span>}
-                            {customField.label}
-                          </label>
-                          {renderField(customField)}
-                        </div>
-                      )
-                    } else {
-                      // Renderização inteligente baseada no tipo de campo
-                      // Criar label mais amigável
-                      const label = key
-                        .replace(/([A-Z])/g, ' $1') // Adiciona espaço antes de maiúsculas
-                        .replace(/^./, str => str.toUpperCase()) // Primeira letra maiúscula
-                        .trim()
+                {/* Renderizar campos por categoria */}
+                {fieldCategories.map((category, categoryIndex) => (
+                  <div key={categoryIndex} className="field-category">
+                    <h4 className="category-title">{category.name}</h4>
+                    <div className="form-grid">
+                      {category.fields.map(fieldId => {
+                        // Verificar se existe campo customizado
+                        const customField = fields.find(f => f.id === fieldId)
 
-                      return (
-                        <div key={key} className="form-group">
-                          <label htmlFor={key}>
-                            {label}
-                          </label>
-                          {renderSmartField(key, label)}
-                        </div>
-                      )
-                    }
-                  })}
-                </div>
+                        if (customField) {
+                          // Usar renderização customizada
+                          return (
+                            <div key={fieldId} className="form-group">
+                              <label htmlFor={fieldId}>
+                                {customField.icon && <span className="field-icon-label">{customField.icon}</span>}
+                                {customField.label}
+                              </label>
+                              {renderField(customField)}
+                            </div>
+                          )
+                        } else {
+                          // Renderização inteligente baseada no tipo de campo
+                          // Criar label mais amigável
+                          const label = fieldId
+                            .replace(/([A-Z])/g, ' $1') // Adiciona espaço antes de maiúsculas
+                            .replace(/^./, str => str.toUpperCase()) // Primeira letra maiúscula
+                            .trim()
+
+                          return (
+                            <div key={fieldId} className="form-group">
+                              <label htmlFor={fieldId}>
+                                {label}
+                              </label>
+                              {renderSmartField(fieldId, label)}
+                            </div>
+                          )
+                        }
+                      })}
+                    </div>
+                  </div>
+                ))}
+
                 <button className="btn-save" onClick={handleSave}>
                   💾 Salvar Alterações
                 </button>
