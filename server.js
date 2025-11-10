@@ -814,13 +814,15 @@ Nome: ${rawData.name}
 Instagram: @${rawData.instagram}
 Bio: ${rawData.bio}
 Telefone encontrado: ${rawData.phone}
+Cidade: ${city}
 
 IMPORTANTE:
 - Retorne APENAS JSON válido
 - Use os IDs dos campos como chaves
 - Para "instagram", use apenas o username sem @
 - Para "presencaRedeSocial" ou similar, use "Sim" (está no Instagram)
-- Se não encontrar info, use string vazia
+- Para "cidade", use SEMPRE: ${city}
+- Se não encontrar info para outros campos, use string vazia
 
 JSON:`;
 
@@ -834,6 +836,10 @@ JSON:`;
 
                         try {
                             const structuredData = JSON.parse(aiText);
+
+                            // SEMPRE garantir que a cidade está nos dados
+                            structuredData.cidade = city;
+
                             extractedProspects.push({
                                 id: Date.now().toString() + '-' + i,
                                 data: structuredData,
@@ -859,6 +865,7 @@ JSON:`;
                             if (field.id === 'nome') simpleData[field.id] = rawData.name;
                             else if (field.id === 'instagram') simpleData[field.id] = rawData.instagram;
                             else if (field.id === 'telefone') simpleData[field.id] = rawData.phone;
+                            else if (field.id === 'cidade') simpleData[field.id] = city; // SEMPRE incluir cidade
                             else if (field.id.includes('rede') || field.id.includes('social')) simpleData[field.id] = 'Sim';
                             else simpleData[field.id] = '';
                         });
