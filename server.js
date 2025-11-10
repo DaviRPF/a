@@ -51,7 +51,14 @@ const DEFAULT_FIELDS = [
     { id: 'nome', label: 'Nome do Estabelecimento', type: 'text', required: true, icon: '🏪' },
     { id: 'telefone', label: 'Telefone', type: 'tel', required: true, icon: '📞' },
     { id: 'instagram', label: 'Instagram', type: 'text', required: false, icon: '📱' },
-    { id: 'googleMeuNegocio', label: 'Google Meu Negócio', type: 'text', required: false, icon: '🌐' },
+    { id: 'cnpj', label: 'CNPJ', type: 'text', required: false, icon: '📄' },
+    { id: 'capitalSocial', label: 'Capital Social', type: 'text', required: false, icon: '💰' },
+    { id: 'porte', label: 'Porte da Empresa', type: 'text', required: false, icon: '📊' },
+    { id: 'socios', label: 'Sócios / Administradores', type: 'textarea', required: false, icon: '👥' },
+    { id: 'fonte', label: 'Fonte dos Dados', type: 'text', required: false, icon: '📌' },
+    { id: 'fonteUrl', label: 'URL da Fonte', type: 'text', required: false, icon: '🔗' },
+    { id: 'googleMeuNegocio', label: 'Tem Google Meu Negócio?', type: 'select', required: false, icon: '🌐', options: ['Sim', 'Não'] },
+    { id: 'googleMeuNegocioUrl', label: 'URL Google Meu Negócio', type: 'text', required: false, icon: '🔗' },
     { id: 'presencaRedeSocial', label: 'Tem Presença na Rede Social?', type: 'select', required: true, icon: '👥', options: ['Sim', 'Não'] }
 ];
 
