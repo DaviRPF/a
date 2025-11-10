@@ -305,7 +305,7 @@ app.post('/api/transcribe-audio', async (req, res) => {
 
         const conversation = [];
 
-        // Transcrever MICROFONE (vendedor)
+        // Transcrever MICROFONE (vendedor) com segmentação temporal
         if (micAudioBase64) {
             try {
                 const base64Audio = micAudioBase64.replace(/^data:audio\/\w+;base64,/, '');
@@ -314,14 +314,31 @@ app.post('/api/transcribe-audio', async (req, res) => {
 
 IMPORTANTE:
 - Este é o áudio do MICROFONE (vendedor)
-- Transcreva TODAS as falas do vendedor
+- Identifique TODAS as pausas/intervalos entre as falas
+- Para cada fala do vendedor, estime o timestamp aproximado (em segundos desde o início do áudio)
 - Seja o mais preciso possível
 - Transcreva em português do Brasil
-- Se houver múltiplas falas, separe cada uma
 
-RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
+RETORNE UM JSON com array de falas:
+{
+  "falas": [
+    {
+      "timestamp": 0.0,
+      "text": "primeira fala do vendedor"
+    },
+    {
+      "timestamp": 15.5,
+      "text": "segunda fala do vendedor"
+    }
+  ]
+}
 
-                console.log('🎤 Transcrevendo áudio do MICROFONE (vendedor)...');
+IMPORTANTE:
+- Use timestamps aproximados baseados nas pausas na conversa
+- Se houver silêncio antes de uma fala, o timestamp deve refletir isso
+- RETORNE APENAS O JSON, sem markdown ou formatação extra`;
+
+                console.log('🎤 Transcrevendo áudio do MICROFONE (vendedor) com timestamps...');
 
                 const result = await model.generateContent([
                     {
@@ -334,15 +351,32 @@ RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
                 ]);
 
                 const response = await result.response;
-                const vendedorText = response.text().trim();
+                let vendedorText = response.text().trim();
 
-                console.log('✅ Microfone transcrito:', vendedorText.substring(0, 100) + '...');
+                // Remover markdown code blocks se houver
+                vendedorText = vendedorText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-                // Adicionar fala do vendedor
-                if (vendedorText && vendedorText.length > 0) {
+                console.log('✅ Microfone transcrito (raw):', vendedorText.substring(0, 200));
+
+                try {
+                    const vendedorData = JSON.parse(vendedorText);
+                    if (vendedorData.falas && Array.isArray(vendedorData.falas)) {
+                        vendedorData.falas.forEach(fala => {
+                            conversation.push({
+                                speaker: 'vendedor',
+                                text: fala.text,
+                                timestamp: fala.timestamp || 0
+                            });
+                        });
+                        console.log(`✅ ${vendedorData.falas.length} falas do vendedor identificadas`);
+                    }
+                } catch (parseError) {
+                    console.error('❌ Erro ao parsear JSON do vendedor, usando fallback:', parseError.message);
+                    // Fallback: adicionar tudo como uma fala
                     conversation.push({
                         speaker: 'vendedor',
-                        text: vendedorText
+                        text: vendedorText,
+                        timestamp: 0
                     });
                 }
             } catch (error) {
@@ -350,7 +384,7 @@ RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
             }
         }
 
-        // Transcrever SISTEMA (cliente)
+        // Transcrever SISTEMA (cliente) com segmentação temporal
         if (systemAudioBase64) {
             try {
                 const base64Audio = systemAudioBase64.replace(/^data:audio\/\w+;base64,/, '');
@@ -359,14 +393,31 @@ RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
 
 IMPORTANTE:
 - Este é o áudio do SISTEMA (cliente/atendente do telefone)
-- Transcreva TODAS as falas do cliente/atendente
+- Identifique TODAS as pausas/intervalos entre as falas
+- Para cada fala do cliente, estime o timestamp aproximado (em segundos desde o início do áudio)
 - Seja o mais preciso possível
 - Transcreva em português do Brasil
-- Se houver múltiplas falas, separe cada uma
 
-RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
+RETORNE UM JSON com array de falas:
+{
+  "falas": [
+    {
+      "timestamp": 0.0,
+      "text": "primeira fala do cliente"
+    },
+    {
+      "timestamp": 12.3,
+      "text": "segunda fala do cliente"
+    }
+  ]
+}
 
-                console.log('📞 Transcrevendo áudio do SISTEMA (cliente)...');
+IMPORTANTE:
+- Use timestamps aproximados baseados nas pausas na conversa
+- Se houver silêncio antes de uma fala, o timestamp deve refletir isso
+- RETORNE APENAS O JSON, sem markdown ou formatação extra`;
+
+                console.log('📞 Transcrevendo áudio do SISTEMA (cliente) com timestamps...');
 
                 const result = await model.generateContent([
                     {
@@ -379,15 +430,32 @@ RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
                 ]);
 
                 const response = await result.response;
-                const clienteText = response.text().trim();
+                let clienteText = response.text().trim();
 
-                console.log('✅ Sistema transcrito:', clienteText.substring(0, 100) + '...');
+                // Remover markdown code blocks se houver
+                clienteText = clienteText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-                // Adicionar fala do cliente
-                if (clienteText && clienteText.length > 0) {
+                console.log('✅ Sistema transcrito (raw):', clienteText.substring(0, 200));
+
+                try {
+                    const clienteData = JSON.parse(clienteText);
+                    if (clienteData.falas && Array.isArray(clienteData.falas)) {
+                        clienteData.falas.forEach(fala => {
+                            conversation.push({
+                                speaker: 'cliente',
+                                text: fala.text,
+                                timestamp: fala.timestamp || 0
+                            });
+                        });
+                        console.log(`✅ ${clienteData.falas.length} falas do cliente identificadas`);
+                    }
+                } catch (parseError) {
+                    console.error('❌ Erro ao parsear JSON do cliente, usando fallback:', parseError.message);
+                    // Fallback: adicionar tudo como uma fala
                     conversation.push({
                         speaker: 'cliente',
-                        text: clienteText
+                        text: clienteText,
+                        timestamp: 0
                     });
                 }
             } catch (error) {
@@ -395,9 +463,16 @@ RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
             }
         }
 
-        // Retornar conversa estruturada
+        // Ordenar conversa por timestamp para manter ordem cronológica
         if (conversation.length > 0) {
-            console.log(`📊 ${conversation.length} participante(s) identificado(s)`);
+            conversation.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            console.log(`📊 ${conversation.length} fala(s) identificada(s) e ordenadas por timestamp`);
+
+            // Log da ordem final para debug
+            conversation.forEach((msg, idx) => {
+                console.log(`  ${idx + 1}. [${msg.timestamp}s] ${msg.speaker}: ${msg.text.substring(0, 50)}...`);
+            });
+
             res.json({
                 conversation: conversation,
                 isStructured: true
