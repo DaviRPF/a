@@ -26,7 +26,7 @@ function App() {
   const [showEnhancement, setShowEnhancement] = useState(false)
   const [approvedProspects, setApprovedProspects] = useState([])
   const [showSettings, setShowSettings] = useState(false)
-  const [showSchedules, setShowSchedules] = useState(false)
+  const [activeTab, setActiveTab] = useState('organizador') // 'organizador', 'pendentes', 'aperfeicoar', 'agendamentos'
 
   // Carregar prospects e campos ao montar o componente
   useEffect(() => {
@@ -136,9 +136,9 @@ function App() {
     // Fechar painel de automação
     setShowAutomation(false)
 
-    // Guardar prospects aprovados e abrir painel de aperfeiçoamento
+    // Guardar prospects aprovados e abrir aba de aperfeiçoamento
     setApprovedProspects(prospectsData)
-    setShowEnhancement(true)
+    setActiveTab('aperfeicoar')
   }
 
   // Salvar prospects aperfeiçoados
@@ -152,7 +152,7 @@ function App() {
         setProspects(prev => [...prev, newProspect])
       }
       showToast(`${enhancedProspects.length} prospects adicionados!`, 'success')
-      setShowEnhancement(false)
+      setActiveTab('organizador')
       setApprovedProspects([])
     } catch (error) {
       console.error('❌ Erro ao salvar prospects:', error)
@@ -178,12 +178,6 @@ function App() {
             🤖 Geração Automática
           </button>
           <button
-            className="btn-schedules"
-            onClick={() => setShowSchedules(true)}
-          >
-            📅 Agendamentos
-          </button>
-          <button
             className="btn-config"
             onClick={() => setShowFieldsManager(!showFieldsManager)}
           >
@@ -198,6 +192,34 @@ function App() {
         </div>
       </header>
 
+      {/* Abas de navegação */}
+      <div className="tabs-container">
+        <button
+          className={`tab ${activeTab === 'organizador' ? 'active' : ''}`}
+          onClick={() => setActiveTab('organizador')}
+        >
+          📋 Organizador
+        </button>
+        <button
+          className={`tab ${activeTab === 'pendentes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('pendentes')}
+        >
+          ⏳ Pendentes
+        </button>
+        <button
+          className={`tab ${activeTab === 'aperfeicoar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('aperfeicoar')}
+        >
+          ✨ Aperfeiçoar
+        </button>
+        <button
+          className={`tab ${activeTab === 'agendamentos' ? 'active' : ''}`}
+          onClick={() => setActiveTab('agendamentos')}
+        >
+          📅 Agendamentos
+        </button>
+      </div>
+
       <div className="container">
         {showFieldsManager && (
           <section className="section">
@@ -210,28 +232,80 @@ function App() {
           </section>
         )}
 
-        <section className="section">
-          <h2 className="section-title">Adicionar Novo Prospect</h2>
-          <ProspectForm onSubmit={handleAddProspect} fields={fields} />
-        </section>
+        {/* Aba Organizador */}
+        {activeTab === 'organizador' && (
+          <>
+            <section className="section">
+              <h2 className="section-title">Adicionar Novo Prospect</h2>
+              <ProspectForm onSubmit={handleAddProspect} fields={fields} />
+            </section>
 
-        <section className="section">
-          <div className="section-header">
-            <h2 className="section-title">Lista de Prospects</h2>
-            <StatusFilter
-              currentFilter={statusFilter}
-              onFilterChange={setStatusFilter}
-            />
-          </div>
+            <section className="section">
+              <div className="section-header">
+                <h2 className="section-title">Lista de Prospects</h2>
+                <StatusFilter
+                  currentFilter={statusFilter}
+                  onFilterChange={setStatusFilter}
+                />
+              </div>
 
-          <ProspectList
-            prospects={filteredProspects}
+              <ProspectList
+                prospects={filteredProspects}
+                fields={fields}
+                loading={loading}
+                onUpdateStatus={handleUpdateStatus}
+                onDelete={handleDeleteProspect}
+              />
+            </section>
+          </>
+        )}
+
+        {/* Aba Pendentes */}
+        {activeTab === 'pendentes' && (
+          <section className="section">
+            <h2 className="section-title">⏳ Prospects Pendentes</h2>
+            <p className="section-subtitle">Prospects aguardando processamento ou aprovação</p>
+            <div className="empty-state" style={{marginTop: '40px'}}>
+              <p>Em desenvolvimento</p>
+              <small>Esta funcionalidade será implementada em breve</small>
+            </div>
+          </section>
+        )}
+
+        {/* Aba Aperfeiçoar */}
+        {activeTab === 'aperfeicoar' && (
+          <section className="section">
+            {approvedProspects.length > 0 ? (
+              <EnhancementPanel
+                isOpen={true}
+                onClose={() => {
+                  setActiveTab('organizador')
+                  setApprovedProspects([])
+                }}
+                prospects={approvedProspects}
+                fields={fields}
+                onSaveEnhanced={handleSaveEnhancedProspects}
+              />
+            ) : (
+              <>
+                <h2 className="section-title">✨ Aperfeiçoar Prospects</h2>
+                <p className="section-subtitle">Use a Geração Automática para trazer prospects aqui</p>
+                <div className="empty-state" style={{marginTop: '40px'}}>
+                  <p>📭 Nenhum prospect para aperfeiçoar</p>
+                  <small>Clique em "🤖 Geração Automática" para começar</small>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {/* Aba Agendamentos */}
+        {activeTab === 'agendamentos' && (
+          <SchedulesPanel
+            prospects={prospects}
             fields={fields}
-            loading={loading}
-            onUpdateStatus={handleUpdateStatus}
-            onDelete={handleDeleteProspect}
           />
-        </section>
+        )}
       </div>
 
       <AutomationPanel
@@ -241,27 +315,9 @@ function App() {
         onApproveProspects={handleApproveProspects}
       />
 
-      <EnhancementPanel
-        isOpen={showEnhancement}
-        onClose={() => {
-          setShowEnhancement(false)
-          setApprovedProspects([])
-        }}
-        prospects={approvedProspects}
-        fields={fields}
-        onSaveEnhanced={handleSaveEnhancedProspects}
-      />
-
       <SettingsPanel
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
-      />
-
-      <SchedulesPanel
-        isOpen={showSchedules}
-        onClose={() => setShowSchedules(false)}
-        prospects={prospects}
-        fields={fields}
       />
 
       {toast && <Toast message={toast.message} type={toast.type} />}
