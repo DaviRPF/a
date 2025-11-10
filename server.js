@@ -310,33 +310,34 @@ app.post('/api/transcribe-audio', async (req, res) => {
             try {
                 const base64Audio = micAudioBase64.replace(/^data:audio\/\w+;base64,/, '');
 
-                const prompt = `Transcreva COMPLETAMENTE este áudio de um VENDEDOR em uma ligação de vendas.
+                const prompt = `Transcreva EXATAMENTE o que você ouve neste áudio de um VENDEDOR em uma ligação de vendas.
 
-IMPORTANTE:
-- Este é o áudio do MICROFONE (vendedor)
-- Identifique TODAS as pausas/intervalos entre as falas
-- Para cada fala do vendedor, estime o timestamp aproximado (em segundos desde o início do áudio)
-- Seja o mais preciso possível
-- Transcreva em português do Brasil
+⚠️ REGRAS CRÍTICAS - LEIA COM ATENÇÃO:
+1. Transcreva APENAS o que você REALMENTE ouve no áudio
+2. NÃO invente falas que não existem
+3. NÃO adicione contexto ou interpretação
+4. NÃO complete frases que ficaram incompletas
+5. NÃO presuma o que deveria ter sido dito
+6. Se não conseguir entender uma parte, escreva "[inaudível]"
+7. Cada fala deve ter um timestamp aproximado (em segundos desde o início)
 
-RETORNE UM JSON com array de falas:
+Este é o áudio do MICROFONE (vendedor falando).
+
+FORMATO DE RESPOSTA (JSON):
 {
   "falas": [
     {
       "timestamp": 0.0,
-      "text": "primeira fala do vendedor"
-    },
-    {
-      "timestamp": 15.5,
-      "text": "segunda fala do vendedor"
+      "text": "texto EXATO que você ouviu no áudio"
     }
   ]
 }
 
 IMPORTANTE:
-- Use timestamps aproximados baseados nas pausas na conversa
-- Se houver silêncio antes de uma fala, o timestamp deve refletir isso
-- RETORNE APENAS O JSON, sem markdown ou formatação extra`;
+- Timestamps baseados nas pausas reais
+- Se houver silêncios longos, reflita isso nos timestamps
+- Seja FIEL ao áudio, não invente nada
+- RETORNE APENAS O JSON, sem markdown`;
 
                 console.log('🎤 Transcrevendo áudio do MICROFONE (vendedor) com timestamps...');
 
@@ -389,33 +390,34 @@ IMPORTANTE:
             try {
                 const base64Audio = systemAudioBase64.replace(/^data:audio\/\w+;base64,/, '');
 
-                const prompt = `Transcreva COMPLETAMENTE este áudio de um CLIENTE/ATENDENTE em uma ligação de vendas.
+                const prompt = `Transcreva EXATAMENTE o que você ouve neste áudio de um CLIENTE/ATENDENTE em uma ligação de vendas.
 
-IMPORTANTE:
-- Este é o áudio do SISTEMA (cliente/atendente do telefone)
-- Identifique TODAS as pausas/intervalos entre as falas
-- Para cada fala do cliente, estime o timestamp aproximado (em segundos desde o início do áudio)
-- Seja o mais preciso possível
-- Transcreva em português do Brasil
+⚠️ REGRAS CRÍTICAS - LEIA COM ATENÇÃO:
+1. Transcreva APENAS o que você REALMENTE ouve no áudio
+2. NÃO invente falas que não existem
+3. NÃO adicione contexto ou interpretação
+4. NÃO complete frases que ficaram incompletas
+5. NÃO presuma o que deveria ter sido dito
+6. Se não conseguir entender uma parte, escreva "[inaudível]"
+7. Cada fala deve ter um timestamp aproximado (em segundos desde o início)
 
-RETORNE UM JSON com array de falas:
+Este é o áudio do SISTEMA (cliente/atendente do telefone falando).
+
+FORMATO DE RESPOSTA (JSON):
 {
   "falas": [
     {
       "timestamp": 0.0,
-      "text": "primeira fala do cliente"
-    },
-    {
-      "timestamp": 12.3,
-      "text": "segunda fala do cliente"
+      "text": "texto EXATO que você ouviu no áudio"
     }
   ]
 }
 
 IMPORTANTE:
-- Use timestamps aproximados baseados nas pausas na conversa
-- Se houver silêncio antes de uma fala, o timestamp deve refletir isso
-- RETORNE APENAS O JSON, sem markdown ou formatação extra`;
+- Timestamps baseados nas pausas reais
+- Se houver silêncios longos, reflita isso nos timestamps
+- Seja FIEL ao áudio, não invente nada
+- RETORNE APENAS O JSON, sem markdown`;
 
                 console.log('📞 Transcrevendo áudio do SISTEMA (cliente) com timestamps...');
 
