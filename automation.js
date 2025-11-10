@@ -771,20 +771,47 @@ export async function checkGoogleMyBusiness(companyName, city, genAI, geminiMode
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
-        // Capturar texto da página
-        const pageText = await page.evaluate(() => {
-            // Focar na área do Knowledge Panel (card lateral)
-            const knowledgePanel = document.querySelector('[data-attrid="kc:/local:one box"], [class*="knowledge"], .kp-wholepage');
+        // Usar serp-parser para extrair dados de negócios locais
+        const html = await page.content();
+        const serp = new GoogleSERP(html);
+        const serpResults = serp.serp;
 
-            if (knowledgePanel) {
-                return {
-                    hasPanel: true,
-                    text: knowledgePanel.innerText
-                };
-            }
+        let pageText = { hasPanel: false, text: '' };
 
-            return { hasPanel: false };
-        });
+        // Verificar se tem dados de negócios locais (locals)
+        if (serpResults.locals && serpResults.locals.length > 0) {
+            console.log(`📍 Serp-parser encontrou ${serpResults.locals.length} negócio(s) local(is)`);
+
+            // Combinar informações dos negócios locais encontrados
+            const localTexts = serpResults.locals.map(local => {
+                return `${local.name || ''}\n${local.address || ''}\n${local.rating || ''}\n${local.reviews || ''}`;
+            }).join('\n\n');
+
+            pageText = {
+                hasPanel: true,
+                text: localTexts,
+                source: 'serp-parser'
+            };
+        }
+
+        // Fallback: tentar seletores CSS manuais se serp-parser não encontrou
+        if (!pageText.hasPanel) {
+            console.log('⚠️ Serp-parser não encontrou locals, usando fallback manual...');
+            pageText = await page.evaluate(() => {
+                // Focar na área do Knowledge Panel (card lateral)
+                const knowledgePanel = document.querySelector('[data-attrid="kc:/local:one box"], [class*="knowledge"], .kp-wholepage');
+
+                if (knowledgePanel) {
+                    return {
+                        hasPanel: true,
+                        text: knowledgePanel.innerText,
+                        source: 'fallback-manual'
+                    };
+                }
+
+                return { hasPanel: false };
+            });
+        }
 
         if (!pageText.hasPanel) {
             console.log('⚠️ Nenhum Knowledge Panel encontrado');

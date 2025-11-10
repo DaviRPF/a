@@ -300,62 +300,90 @@ async function checkGoogleMyBusiness(companyName, city, genAI, geminiModel) {
         await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
-        // Verificar se tem Knowledge Panel (Google Meu Negócio)
-        const hasKnowledgePanel = await page.evaluate(() => {
-            // Seletores específicos do Knowledge Panel / Local Pack
-            const selectors = [
-                // Knowledge Panel principal
-                '[data-attrid="kc:/local:one box"]',
-                '.kp-wholepage',
-                '[data-attrid*="kc:/location"]',
+        // Usar serp-parser para extrair dados de negócios locais
+        const html = await page.content();
+        const serp = new GoogleSERP(html);
+        const serpResults = serp.serp;
 
-                // Local Pack (card lateral direito)
-                '[jsname="pubmh"]',
-                '.cu-container',
-                '[data-attrid="kc:/local:place"]',
+        let hasKnowledgePanel = { hasPanel: false, text: '' };
 
-                // Informações de local/negócio
-                '[class*="knowledge"]',
-                '[data-attrid*="kc:"]',
-                '.mod[data-md]',
+        // Verificar se tem dados de negócios locais (locals)
+        if (serpResults.locals && serpResults.locals.length > 0) {
+            console.log(`📍 Serp-parser encontrou ${serpResults.locals.length} negócio(s) local(is)`);
 
-                // Novos seletores (estrutura atual do Google)
-                '#rhs_block [data-attrid]',
-                '.knowledge-panel',
-                '[aria-label*="lugar"]',
-                '[aria-label*="business"]'
-            ];
+            // Combinar informações dos negócios locais encontrados
+            const localTexts = serpResults.locals.map(local => {
+                return `${local.name || ''}\n${local.address || ''}\n${local.rating || ''}\n${local.reviews || ''}`;
+            }).join('\n\n');
 
-            // Tentar cada seletor
-            for (const selector of selectors) {
-                try {
-                    const element = document.querySelector(selector);
-                    if (element && element.innerText.length > 100) {
-                        console.log('✓ Knowledge Panel encontrado (seletor:', selector, ')');
-                        return {
-                            hasPanel: true,
-                            text: element.innerText,
-                            selector: selector
-                        };
+            hasKnowledgePanel = {
+                hasPanel: true,
+                text: localTexts,
+                source: 'serp-parser'
+            };
+        }
+
+        // Fallback: tentar seletores CSS manuais se serp-parser não encontrou
+        if (!hasKnowledgePanel.hasPanel) {
+            console.log('⚠️ Serp-parser não encontrou locals, usando fallback manual...');
+            hasKnowledgePanel = await page.evaluate(() => {
+                // Seletores específicos do Knowledge Panel / Local Pack
+                const selectors = [
+                    // Knowledge Panel principal
+                    '[data-attrid="kc:/local:one box"]',
+                    '.kp-wholepage',
+                    '[data-attrid*="kc:/location"]',
+
+                    // Local Pack (card lateral direito)
+                    '[jsname="pubmh"]',
+                    '.cu-container',
+                    '[data-attrid="kc:/local:place"]',
+
+                    // Informações de local/negócio
+                    '[class*="knowledge"]',
+                    '[data-attrid*="kc:"]',
+                    '.mod[data-md]',
+
+                    // Novos seletores (estrutura atual do Google)
+                    '#rhs_block [data-attrid]',
+                    '.knowledge-panel',
+                    '[aria-label*="lugar"]',
+                    '[aria-label*="business"]'
+                ];
+
+                // Tentar cada seletor
+                for (const selector of selectors) {
+                    try {
+                        const element = document.querySelector(selector);
+                        if (element && element.innerText.length > 100) {
+                            console.log('✓ Knowledge Panel encontrado (seletor:', selector, ')');
+                            return {
+                                hasPanel: true,
+                                text: element.innerText,
+                                selector: selector,
+                                source: 'fallback-manual'
+                            };
+                        }
+                    } catch (e) {
+                        continue;
                     }
-                } catch (e) {
-                    continue;
                 }
-            }
 
-            // Fallback: procurar por elementos com muito texto no lado direito
-            const rhsContent = document.querySelector('#rhs, #rhs_block');
-            if (rhsContent && rhsContent.innerText.length > 200) {
-                console.log('✓ Conteúdo do lado direito encontrado (possível Knowledge Panel)');
-                return {
-                    hasPanel: true,
-                    text: rhsContent.innerText,
-                    selector: 'fallback-rhs'
-                };
-            }
+                // Fallback: procurar por elementos com muito texto no lado direito
+                const rhsContent = document.querySelector('#rhs, #rhs_block');
+                if (rhsContent && rhsContent.innerText.length > 200) {
+                    console.log('✓ Conteúdo do lado direito encontrado (possível Knowledge Panel)');
+                    return {
+                        hasPanel: true,
+                        text: rhsContent.innerText,
+                        selector: 'fallback-rhs',
+                        source: 'fallback-manual'
+                    };
+                }
 
-            return { hasPanel: false };
-        });
+                return { hasPanel: false };
+            });
+        }
 
         if (!hasKnowledgePanel.hasPanel) {
             console.log('❌ Não encontrou Knowledge Panel');
