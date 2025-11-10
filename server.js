@@ -281,6 +281,61 @@ app.get('/api/prospects/:id/call-history', (req, res) => {
     }
 });
 
+// POST - Transcrever áudio completo com Gemini
+app.post('/api/transcribe-audio', async (req, res) => {
+    try {
+        const { audioBase64 } = req.body;
+
+        if (!audioBase64) {
+            return res.status(400).json({ error: 'Áudio não fornecido' });
+        }
+
+        if (!genAI) {
+            return res.status(500).json({ error: 'Gemini AI não configurado' });
+        }
+
+        console.log('🎙️ Transcrevendo áudio com Gemini...');
+
+        const settings = readSettings();
+        const model = genAI.getGenerativeModel({ model: settings.geminiModel });
+
+        // Remover o prefixo data:audio/webm;base64, se existir
+        const base64Audio = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
+
+        const prompt = `Transcreva COMPLETAMENTE este áudio de uma ligação de vendas.
+
+IMPORTANTE:
+- Transcreva TODAS as vozes que você ouvir (vendedor e cliente/atendente)
+- Identifique quem está falando (Vendedor: ... / Cliente: ... / Atendente: ...)
+- Seja o mais preciso possível
+- Inclua pausas, hesitações se relevantes
+- Transcreva em português do Brasil
+
+RETORNE APENAS A TRANSCRIÇÃO, sem introduções ou explicações.`;
+
+        const result = await model.generateContent([
+            {
+                inlineData: {
+                    mimeType: 'audio/webm',
+                    data: base64Audio
+                }
+            },
+            { text: prompt }
+        ]);
+
+        const response = await result.response;
+        const transcription = response.text().trim();
+
+        console.log('✅ Áudio transcrito com sucesso');
+        console.log('📝 Transcrição:', transcription.substring(0, 200) + '...');
+
+        res.json({ transcription });
+    } catch (error) {
+        console.error('❌ Erro ao transcrever áudio:', error);
+        res.status(500).json({ error: 'Erro ao transcrever áudio: ' + error.message });
+    }
+});
+
 // POST - Analisar transcrição com IA e sugerir campos
 app.post('/api/prospects/:id/analyze-call', async (req, res) => {
     try {

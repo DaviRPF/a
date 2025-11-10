@@ -15,14 +15,16 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   const [isRecording, setIsRecording] = useState(false)
   const [audioBlob, setAudioBlob] = useState(null)
   const [transcription, setTranscription] = useState('')
+  const [realtimeTranscript, setRealtimeTranscript] = useState('') // Transcrição em tempo real (só microfone)
 
   // Estados do fluxo
-  const [flowState, setFlowState] = useState('idle') // 'idle', 'recording', 'approving_transcript', 'approving_analysis', 'viewing_history'
+  const [flowState, setFlowState] = useState('idle') // 'idle', 'recording', 'transcribing', 'approving_transcript', 'approving_analysis', 'viewing_history'
   const [aiAnalysis, setAiAnalysis] = useState(null)
   const [editedAnalysis, setEditedAnalysis] = useState(null)
   const [callHistory, setCallHistory] = useState([])
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false)
   const [isSavingCall, setIsSavingCall] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
 
   // Refs
   const micStreamRef = useRef(null)
@@ -47,6 +49,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
       loadAudioDevices()
       setFlowState('idle')
       setTranscription('')
+      setRealtimeTranscript('')
       setAudioBlob(null)
       setAiAnalysis(null)
       setEditedAnalysis(null)
@@ -194,7 +197,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           }
 
           if (finalTranscript) {
-            setTranscription(prev => prev + finalTranscript)
+            setRealtimeTranscript(prev => prev + finalTranscript)
           }
         }
 
@@ -221,7 +224,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
     }
   }
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     // Parar MediaRecorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()
@@ -271,11 +274,60 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
     setSystemVolume(0)
     setIsRecording(false)
 
-    // Se tem transcrição, mover para aprovação
-    if (transcription.trim()) {
-      setFlowState('approving_transcript')
+    // Aguardar o audioBlob ser criado (callback do MediaRecorder)
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Se tem audioBlob, transcrever com Gemini (captura AMBOS os áudios)
+    if (audioChunksRef.current.length > 0) {
+      setFlowState('transcribing')
+      setIsTranscribing(true)
+
+      try {
+        // Criar blob temporário para transcrição
+        const tempBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+
+        // Converter para base64
+        const reader = new FileReader()
+        const audioBase64 = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result)
+          reader.readAsDataURL(tempBlob)
+        })
+
+        console.log('🎙️ Transcrevendo áudio completo com IA...')
+
+        // Enviar para transcrição com Gemini
+        const response = await axios.post('/api/transcribe-audio', {
+          audioBase64
+        })
+
+        const fullTranscription = response.data.transcription
+
+        console.log('✅ Transcrição completa:', fullTranscription)
+
+        // Usar a transcrição completa (microfone + sistema)
+        setTranscription(fullTranscription)
+        setFlowState('approving_transcript')
+      } catch (error) {
+        console.error('❌ Erro ao transcrever áudio:', error)
+        alert('Erro ao transcrever áudio. Usando transcrição em tempo real (apenas microfone).')
+        // Fallback: usar transcrição em tempo real
+        setTranscription(realtimeTranscript)
+        if (realtimeTranscript.trim()) {
+          setFlowState('approving_transcript')
+        } else {
+          setFlowState('idle')
+        }
+      } finally {
+        setIsTranscribing(false)
+      }
     } else {
-      setFlowState('idle')
+      // Sem áudio gravado, usar transcrição em tempo real
+      setTranscription(realtimeTranscript)
+      if (realtimeTranscript.trim()) {
+        setFlowState('approving_transcript')
+      } else {
+        setFlowState('idle')
+      }
     }
   }
 
@@ -305,6 +357,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
 
   const rejectTranscript = () => {
     setTranscription('')
+    setRealtimeTranscript('')
     setAudioBlob(null)
     setFlowState('idle')
   }
@@ -357,6 +410,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
 
       // Resetar para estado inicial
       setTranscription('')
+      setRealtimeTranscript('')
       setAudioBlob(null)
       setAiAnalysis(null)
       setEditedAnalysis(null)
