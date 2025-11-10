@@ -45,7 +45,10 @@ const ProspectCard = ({ prospect, fields = [], onUpdateStatus, onDelete, onProsp
 
   // Pegar o primeiro campo como título (geralmente "nome")
   const titleField = fields[0]
-  const titleValue = titleField ? prospect[titleField.id] : 'Prospect'
+
+  // Suportar tanto prospect direto quanto prospect.data
+  const prospectData = prospect.data || prospect
+  const titleValue = titleField ? prospectData[titleField.id] : (prospectData.nome || 'Prospect')
 
   return (
     <div className="prospect-card">
@@ -67,7 +70,7 @@ const ProspectCard = ({ prospect, fields = [], onUpdateStatus, onDelete, onProsp
 
       <div className="prospect-info">
         {fields.map((field) => {
-          const value = prospect[field.id]
+          const value = prospectData[field.id]
 
           // Não mostrar o primeiro campo novamente (já está no título)
           if (field === titleField) return null
