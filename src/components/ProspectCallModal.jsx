@@ -16,7 +16,8 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   const micAnalyserRef = useRef(null)
   const systemAnalyserRef = useRef(null)
   const recognitionRef = useRef(null)
-  const animationFrameRef = useRef(null)
+  const micAnimationFrameRef = useRef(null)
+  const systemAnimationFrameRef = useRef(null)
 
   useEffect(() => {
     if (prospect) {
@@ -25,26 +26,37 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   }, [prospect])
 
   useEffect(() => {
-    loadAudioDevices()
+    if (isOpen) {
+      loadAudioDevices()
+    }
     return () => {
       stopRecording()
     }
-  }, [])
+  }, [isOpen])
 
   const loadAudioDevices = async () => {
     try {
+      // Primeiro pedir permissão de microfone para poder listar os dispositivos com labels
+      await navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          // Parar o stream temporário imediatamente
+          stream.getTracks().forEach(track => track.stop())
+        })
+
       const devices = await navigator.mediaDevices.enumerateDevices()
       const mics = devices.filter(device => device.kind === 'audioinput')
+      console.log('Microfones encontrados:', mics)
       setAudioDevices(mics)
       if (mics.length > 0 && !selectedMic) {
         setSelectedMic(mics[0].deviceId)
       }
     } catch (error) {
       console.error('Erro ao carregar dispositivos de áudio:', error)
+      alert('Erro ao acessar microfone. Verifique as permissões do navegador.')
     }
   }
 
-  const setupVolumeAnalyzer = (stream, setVolume) => {
+  const setupVolumeAnalyzer = (stream, setVolume, animationFrameRef) => {
     const audioContext = new AudioContext()
     const analyser = audioContext.createAnalyser()
     const microphone = audioContext.createMediaStreamSource(stream)
@@ -59,12 +71,13 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
     const updateVolume = () => {
       analyser.getByteFrequencyData(dataArray)
       const average = dataArray.reduce((a, b) => a + b) / dataArray.length
-      setVolume(Math.min(100, (average / 255) * 100))
+      const volumePercent = Math.min(100, (average / 255) * 100)
+      setVolume(volumePercent)
       animationFrameRef.current = requestAnimationFrame(updateVolume)
     }
 
     updateVolume()
-    return analyser
+    return { analyser, audioContext }
   }
 
   const startRecording = async () => {
@@ -74,7 +87,8 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
         audio: selectedMic ? { deviceId: { exact: selectedMic } } : true
       })
       micStreamRef.current = micStream
-      micAnalyserRef.current = setupVolumeAnalyzer(micStream, setMicVolume)
+      const micAnalyzerData = setupVolumeAnalyzer(micStream, setMicVolume, micAnimationFrameRef)
+      micAnalyserRef.current = micAnalyzerData
 
       // Tentar capturar áudio do sistema (via compartilhamento de tela/aba)
       try {
@@ -82,10 +96,21 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           video: true,
           audio: true
         })
-        systemStreamRef.current = systemStream
-        systemAnalyserRef.current = setupVolumeAnalyzer(systemStream, setSystemVolume)
+
+        // Verificar se o stream tem áudio
+        const audioTracks = systemStream.getAudioTracks()
+        if (audioTracks.length > 0) {
+          systemStreamRef.current = systemStream
+          const systemAnalyzerData = setupVolumeAnalyzer(systemStream, setSystemVolume, systemAnimationFrameRef)
+          systemAnalyserRef.current = systemAnalyzerData
+          console.log('Áudio do sistema capturado com sucesso')
+        } else {
+          console.log('Nenhuma faixa de áudio no stream do sistema')
+          // Parar o vídeo se não tem áudio
+          systemStream.getTracks().forEach(track => track.stop())
+        }
       } catch (err) {
-        console.log('Usuário não compartilhou áudio do sistema')
+        console.log('Usuário não compartilhou áudio do sistema:', err.message)
       }
 
       // Iniciar reconhecimento de voz
@@ -117,8 +142,19 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           console.error('Erro no reconhecimento de voz:', event.error)
         }
 
+        recognition.onend = () => {
+          // Reiniciar se ainda estiver gravando
+          if (isRecording && recognitionRef.current) {
+            console.log('Reiniciando reconhecimento de voz...')
+            recognition.start()
+          }
+        }
+
         recognition.start()
         recognitionRef.current = recognition
+        console.log('Reconhecimento de voz iniciado')
+      } else {
+        alert('Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.')
       }
 
       setIsRecording(true)
@@ -146,9 +182,26 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
       recognitionRef.current = null
     }
 
-    // Parar animação de volume
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
+    // Parar animações de volume
+    if (micAnimationFrameRef.current) {
+      cancelAnimationFrame(micAnimationFrameRef.current)
+      micAnimationFrameRef.current = null
+    }
+
+    if (systemAnimationFrameRef.current) {
+      cancelAnimationFrame(systemAnimationFrameRef.current)
+      systemAnimationFrameRef.current = null
+    }
+
+    // Fechar audio contexts
+    if (micAnalyserRef.current?.audioContext) {
+      micAnalyserRef.current.audioContext.close()
+      micAnalyserRef.current = null
+    }
+
+    if (systemAnalyserRef.current?.audioContext) {
+      systemAnalyserRef.current.audioContext.close()
+      systemAnalyserRef.current = null
     }
 
     setMicVolume(0)
