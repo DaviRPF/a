@@ -163,6 +163,8 @@ app.post('/api/prospects', (req, res) => {
         const prospects = readProspects();
         const fields = readFieldsConfig();
 
+        console.log('📥 POST /api/prospects - Body recebido:', JSON.stringify(req.body, null, 2));
+
         // Construir prospect dinamicamente baseado nos campos configurados
         const newProspect = {
             id: Date.now().toString(),
@@ -174,6 +176,8 @@ app.post('/api/prospects', (req, res) => {
         fields.forEach(field => {
             newProspect[field.id] = req.body[field.id] || '';
         });
+
+        console.log('💾 Prospect sendo salvo:', JSON.stringify(newProspect, null, 2));
 
         prospects.push(newProspect);
         saveProspects(prospects);

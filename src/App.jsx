@@ -142,14 +142,18 @@ function App() {
   // Salvar prospects aperfeiçoados
   const handleSaveEnhancedProspects = async (enhancedProspects) => {
     try {
+      console.log('💾 Salvando prospects aperfeiçoados:', enhancedProspects)
       for (const prospect of enhancedProspects) {
+        console.log('📤 Enviando prospect.data:', prospect.data)
         const newProspect = await createProspect(prospect.data)
+        console.log('✅ Prospect salvo:', newProspect)
         setProspects(prev => [...prev, newProspect])
       }
       showToast(`${enhancedProspects.length} prospects adicionados!`, 'success')
       setShowEnhancement(false)
       setApprovedProspects([])
     } catch (error) {
+      console.error('❌ Erro ao salvar prospects:', error)
       showToast('Erro ao adicionar prospects', 'error')
     }
   }
