@@ -715,65 +715,55 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                   </select>
                 </div>
 
-                {editedAnalysis.horarioDiaDecisorPresente !== undefined && (
-                  <div className="form-group">
-                    <label>⏰ Horário/Dia que o Decisor Está Presente</label>
-                    <textarea
-                      rows="2"
-                      value={editedAnalysis.horarioDiaDecisorPresente || ''}
-                      onChange={(e) => handleAnalysisFieldChange('horarioDiaDecisorPresente', e.target.value)}
-                      placeholder="Ex: Segunda a Sexta, 14h às 18h"
-                    />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>⏰ Horário/Dia que o Decisor Está Presente</label>
+                  <textarea
+                    rows="2"
+                    value={editedAnalysis.horarioDiaDecisorPresente || ''}
+                    onChange={(e) => handleAnalysisFieldChange('horarioDiaDecisorPresente', e.target.value)}
+                    placeholder="Ex: Segunda a Sexta, 14h às 18h"
+                  />
+                </div>
 
-                {editedAnalysis.diaHorarioReuniao !== undefined && (
-                  <div className="form-group">
-                    <label>📅 Data e Horário da Reunião</label>
-                    <input
-                      type="text"
-                      value={editedAnalysis.diaHorarioReuniao || ''}
-                      onChange={(e) => handleAnalysisFieldChange('diaHorarioReuniao', e.target.value)}
-                      placeholder="Ex: Segunda-feira, 15/01 às 14h"
-                    />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>📅 Data e Horário da Reunião</label>
+                  <input
+                    type="text"
+                    value={editedAnalysis.diaHorarioReuniao || ''}
+                    onChange={(e) => handleAnalysisFieldChange('diaHorarioReuniao', e.target.value)}
+                    placeholder="Ex: Segunda-feira, 15/01 às 14h"
+                  />
+                </div>
 
-                {editedAnalysis.contatoPessoalDecisor !== undefined && (
-                  <div className="form-group">
-                    <label>📱 Contato Pessoal do Decisor</label>
-                    <input
-                      type="tel"
-                      value={editedAnalysis.contatoPessoalDecisor || ''}
-                      onChange={(e) => handleAnalysisFieldChange('contatoPessoalDecisor', e.target.value)}
-                      placeholder="Ex: (11) 99999-9999"
-                    />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>📱 Contato Pessoal do Decisor</label>
+                  <input
+                    type="tel"
+                    value={editedAnalysis.contatoPessoalDecisor || ''}
+                    onChange={(e) => handleAnalysisFieldChange('contatoPessoalDecisor', e.target.value)}
+                    placeholder="Ex: (11) 99999-9999"
+                  />
+                </div>
 
-                {editedAnalysis.motivoObjecaoDecisor !== undefined && (
-                  <div className="form-group">
-                    <label>❌ Motivo da Objeção do Decisor</label>
-                    <textarea
-                      rows="3"
-                      value={editedAnalysis.motivoObjecaoDecisor || ''}
-                      onChange={(e) => handleAnalysisFieldChange('motivoObjecaoDecisor', e.target.value)}
-                      placeholder="Ex: Já tem fornecedor"
-                    />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>❌ Motivo da Objeção do Decisor</label>
+                  <textarea
+                    rows="3"
+                    value={editedAnalysis.motivoObjecaoDecisor || ''}
+                    onChange={(e) => handleAnalysisFieldChange('motivoObjecaoDecisor', e.target.value)}
+                    placeholder="Ex: Já tem fornecedor"
+                  />
+                </div>
 
-                {editedAnalysis.motivoObjecaoAtendente !== undefined && (
-                  <div className="form-group">
-                    <label>🚫 Motivo da Objeção do Atendente</label>
-                    <textarea
-                      rows="3"
-                      value={editedAnalysis.motivoObjecaoAtendente || ''}
-                      onChange={(e) => handleAnalysisFieldChange('motivoObjecaoAtendente', e.target.value)}
-                      placeholder="Ex: Decisor não está"
-                    />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>🚫 Motivo da Objeção do Atendente</label>
+                  <textarea
+                    rows="3"
+                    value={editedAnalysis.motivoObjecaoAtendente || ''}
+                    onChange={(e) => handleAnalysisFieldChange('motivoObjecaoAtendente', e.target.value)}
+                    placeholder="Ex: Decisor não está"
+                  />
+                </div>
               </div>
 
               <div className="approval-buttons">

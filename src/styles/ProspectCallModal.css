@@ -1,11 +1,12 @@
 .prospect-call-modal {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   width: 90%;
   max-width: 900px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 40px var(--shadow-lg);
+  border: 1px solid var(--border);
 }
 
 .prospect-call-modal .modal-header {
@@ -13,8 +14,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 2px solid #e0e0e0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: 2px solid var(--border);
+  background: var(--gradient);
   color: white;
   border-radius: 12px 12px 0 0;
 }
@@ -26,21 +27,23 @@
 
 .prospect-call-modal .modal-body {
   padding: 24px;
+  background: var(--bg-card);
 }
 
 .prospect-call-modal section {
   margin-bottom: 32px;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 .prospect-call-modal section h3 {
   margin: 0 0 16px 0;
   font-size: 1.2rem;
-  color: #333;
+  color: var(--text-primary);
   padding-bottom: 12px;
-  border-bottom: 2px solid #ddd;
+  border-bottom: 2px solid var(--border);
 }
 
 /* Informações do Prospect */
@@ -59,7 +62,7 @@
 .prospect-info-section label {
   font-weight: 600;
   margin-bottom: 6px;
-  color: #555;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -69,21 +72,23 @@
 .prospect-info-section select,
 .prospect-info-section textarea {
   padding: 10px 12px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border);
   border-radius: 6px;
   font-size: 1rem;
   transition: border-color 0.3s;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .prospect-info-section input:focus,
 .prospect-info-section select:focus,
 .prospect-info-section textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--primary);
 }
 
 .btn-save {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: var(--success);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -97,7 +102,7 @@
 
 .btn-save:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 /* Configuração de Áudio */
@@ -109,37 +114,39 @@
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .audio-config-section select {
   width: 100%;
   padding: 10px 12px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border);
   border-radius: 6px;
   font-size: 1rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* Dica de Áudio */
 .audio-tip {
-  background: #e3f2fd;
-  border-left: 4px solid #2196f3;
+  background: var(--bg-tertiary);
+  border-left: 4px solid var(--info);
   padding: 12px 16px;
   margin-bottom: 20px;
   border-radius: 6px;
   font-size: 0.9rem;
   line-height: 1.6;
-  color: #1565c0;
+  color: var(--text-secondary);
 }
 
 .audio-tip a {
-  color: #1976d2;
+  color: var(--info);
   text-decoration: underline;
   font-weight: 600;
 }
 
 .audio-tip a:hover {
-  color: #0d47a1;
+  color: var(--primary);
 }
 
 /* Visualizadores de Volume */
@@ -158,16 +165,17 @@
 .volume-meter label {
   min-width: 120px;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .volume-bar-container {
   flex: 1;
   height: 24px;
-  background: #e0e0e0;
+  background: var(--bg-tertiary);
   border-radius: 12px;
   overflow: hidden;
   position: relative;
+  border: 1px solid var(--border);
 }
 
 .volume-bar {
@@ -177,20 +185,20 @@
 }
 
 .volume-bar.mic-volume {
-  background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
-  box-shadow: 0 0 10px rgba(56, 239, 125, 0.5);
+  background: linear-gradient(90deg, var(--success) 0%, #38ef7d 100%);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
 }
 
 .volume-bar.system-volume {
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 0 10px rgba(118, 75, 162, 0.5);
+  background: var(--gradient);
+  box-shadow: 0 0 10px var(--shadow-colored);
 }
 
 .volume-value {
   min-width: 50px;
   text-align: right;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 /* Botão de Gravação */
@@ -221,7 +229,7 @@
 
 .btn-record.recording {
   background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-  color: #333;
+  color: #000;
   animation: pulse 2s infinite;
 }
 
@@ -254,8 +262,8 @@
 
 /* Transcrição */
 .transcription-section {
-  background: white;
-  border: 2px solid #e0e0e0;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
 }
 
 .transcription-box {
@@ -263,12 +271,12 @@
   max-height: 400px;
   overflow-y: auto;
   padding: 16px;
-  background: #fafafa;
-  border: 2px solid #ddd;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
   border-radius: 8px;
   font-size: 1rem;
   line-height: 1.6;
-  color: #333;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
   margin-bottom: 12px;
@@ -276,7 +284,7 @@
 
 .transcription-box:empty::before {
   content: 'A transcrição aparecerá aqui quando você iniciar a gravação...';
-  color: #999;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -286,8 +294,8 @@
   max-height: 500px;
   overflow-y: auto;
   padding: 16px;
-  background: #f5f5f5;
-  border: 2px solid #ddd;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
   border-radius: 12px;
   margin-bottom: 12px;
   display: flex;
@@ -299,7 +307,7 @@
   max-width: 75%;
   padding: 12px 16px;
   border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   animation: messageSlideIn 0.3s ease-out;
 }
 
@@ -316,16 +324,16 @@
 
 .conversation-message.vendedor {
   align-self: flex-start;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient);
   color: white;
   border-bottom-left-radius: 4px;
 }
 
 .conversation-message.cliente {
   align-self: flex-end;
-  background: white;
-  border: 2px solid #e0e0e0;
-  color: #333;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  color: var(--text-primary);
   border-bottom-right-radius: 4px;
 }
 
@@ -343,7 +351,7 @@
 }
 
 .conversation-message.cliente .message-speaker {
-  color: #667eea;
+  color: var(--primary);
 }
 
 .message-text {
@@ -358,11 +366,11 @@
 }
 
 .conversation-message.cliente .message-text {
-  color: #333;
+  color: var(--text-primary);
 }
 
 .btn-clear-transcription {
-  background: #dc3545;
+  background: var(--danger);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -379,12 +387,12 @@
 
 /* Seção de Aprovação */
 .approval-section {
-  background: #fff3cd !important;
-  border: 2px solid #ffc107;
+  background: var(--bg-secondary) !important;
+  border: 2px solid var(--warning) !important;
 }
 
 .approval-subtitle {
-  color: #856404;
+  color: var(--text-secondary);
   margin-bottom: 16px;
   font-size: 0.95rem;
 }
@@ -396,7 +404,7 @@
 }
 
 .btn-approve {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: var(--success);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -410,7 +418,7 @@
 
 .btn-approve:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 .btn-approve:disabled {
@@ -419,7 +427,7 @@
 }
 
 .btn-reject {
-  background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+  background: var(--danger);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -433,7 +441,7 @@
 
 .btn-reject:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(235, 51, 73, 0.3);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 .btn-reject:disabled {
@@ -454,30 +462,32 @@
 .analysis-form label {
   font-weight: 600;
   margin-bottom: 6px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .analysis-form input,
 .analysis-form select,
 .analysis-form textarea {
   padding: 10px 12px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border);
   border-radius: 6px;
   font-size: 1rem;
   transition: border-color 0.3s;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .analysis-form input:focus,
 .analysis-form select:focus,
 .analysis-form textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--primary);
 }
 
 /* Histórico de Chamadas */
 .call-history-section {
-  background: #e7f3ff !important;
-  border: 2px solid #2196F3;
+  background: var(--bg-secondary) !important;
+  border: 2px solid var(--info) !important;
 }
 
 .call-history-list {
@@ -487,15 +497,15 @@
 }
 
 .call-history-item {
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
   transition: box-shadow 0.3s;
 }
 
 .call-history-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px var(--shadow);
 }
 
 .call-summary {
@@ -505,7 +515,7 @@
   cursor: pointer;
   user-select: none;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   padding: 8px 0;
 }
 
@@ -514,12 +524,12 @@
 }
 
 .call-date {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
 .call-status {
-  background: #667eea;
+  background: var(--primary);
   color: white;
   padding: 4px 12px;
   border-radius: 12px;
@@ -530,7 +540,7 @@
 .call-details {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -542,7 +552,7 @@
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .call-audio audio {
@@ -551,11 +561,11 @@
 }
 
 .call-transcript p {
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   padding: 12px;
   border-radius: 6px;
   line-height: 1.6;
-  color: #333;
+  color: var(--text-primary);
   white-space: pre-wrap;
 }
 
@@ -567,15 +577,44 @@
 
 .call-analysis li {
   padding: 8px 12px;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   margin-bottom: 8px;
   border-radius: 6px;
   line-height: 1.5;
 }
 
 .call-analysis li strong {
-  color: #667eea;
+  color: var(--primary);
   margin-right: 8px;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  transition: transform 0.2s;
+}
+
+.btn-close-modal:hover {
+  transform: scale(1.1);
 }
 
 /* Responsivo */
