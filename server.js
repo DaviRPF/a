@@ -281,87 +281,130 @@ app.get('/api/prospects/:id/call-history', (req, res) => {
     }
 });
 
-// POST - Transcrever áudio completo com Gemini
+
+// POST - Transcrever áudio com Gemini AI (áudios separados)
 app.post('/api/transcribe-audio', async (req, res) => {
     try {
-        const { audioBase64 } = req.body;
+        const { micAudioBase64, systemAudioBase64 } = req.body;
 
-        if (!audioBase64) {
-            return res.status(400).json({ error: 'Áudio não fornecido' });
+        if (!micAudioBase64 && !systemAudioBase64) {
+            return res.status(400).json({ error: 'Nenhum áudio fornecido' });
         }
 
         if (!genAI) {
             return res.status(500).json({ error: 'Gemini AI não configurado' });
         }
 
-        console.log('🎙️ Transcrevendo áudio com Gemini...');
+        console.log('📝 Transcrevendo áudios SEPARADAMENTE com Gemini...');
+        console.log('  - Microfone (vendedor):', micAudioBase64 ? 'SIM' : 'NÃO');
+        console.log('  - Sistema (cliente):', systemAudioBase64 ? 'SIM' : 'NÃO');
 
         const settings = readSettings();
         const model = genAI.getGenerativeModel({ model: settings.geminiModel });
 
-        // Remover o prefixo data:audio/webm;base64, se existir
-        const base64Audio = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
+        const conversation = [];
 
-        const prompt = `Transcreva COMPLETAMENTE este áudio de uma ligação de vendas e retorne em formato JSON.
+        // Transcrever MICROFONE (vendedor)
+        if (micAudioBase64) {
+            try {
+                const base64Audio = micAudioBase64.replace(/^data:audio\/\w+;base64,/, '');
+
+                const prompt = `Transcreva COMPLETAMENTE este áudio de um VENDEDOR em uma ligação de vendas.
 
 IMPORTANTE:
-- O áudio contém DUAS fontes de áudio separadas:
-  1. VENDEDOR (microfone) - voz mais próxima, clara
-  2. CLIENTE/ATENDENTE (sistema/computador) - voz que vem do telefone/chamada
-- Separe CADA FALA em um objeto distinto
-- Identifique quem está falando analisando a origem do áudio
+- Este é o áudio do MICROFONE (vendedor)
+- Transcreva TODAS as falas do vendedor
 - Seja o mais preciso possível
 - Transcreva em português do Brasil
+- Se houver múltiplas falas, separe cada uma
 
-FORMATO DE RETORNO (JSON):
-{
-  "conversation": [
-    {"speaker": "vendedor", "text": "primeira fala do vendedor"},
-    {"speaker": "cliente", "text": "resposta do cliente"},
-    {"speaker": "vendedor", "text": "próxima fala do vendedor"},
-    ...
-  ]
-}
+RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
 
-RETORNE APENAS O JSON, sem introduções ou explicações.`;
+                console.log('🎤 Transcrevendo áudio do MICROFONE (vendedor)...');
 
-        const result = await model.generateContent([
-            {
-                inlineData: {
-                    mimeType: 'audio/webm',
-                    data: base64Audio
+                const result = await model.generateContent([
+                    {
+                        inlineData: {
+                            mimeType: 'audio/webm',
+                            data: base64Audio
+                        }
+                    },
+                    { text: prompt }
+                ]);
+
+                const response = await result.response;
+                const vendedorText = response.text().trim();
+
+                console.log('✅ Microfone transcrito:', vendedorText.substring(0, 100) + '...');
+
+                // Adicionar fala do vendedor
+                if (vendedorText && vendedorText.length > 0) {
+                    conversation.push({
+                        speaker: 'vendedor',
+                        text: vendedorText
+                    });
                 }
-            },
-            { text: prompt }
-        ]);
-
-        const response = await result.response;
-        let transcriptionText = response.text().trim();
-
-        console.log('✅ Áudio transcrito com sucesso');
-        console.log('📝 Resposta bruta:', transcriptionText.substring(0, 200) + '...');
-
-        // Limpar markdown se houver
-        transcriptionText = transcriptionText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-        try {
-            // Tentar parsear como JSON
-            const conversationData = JSON.parse(transcriptionText);
-
-            if (conversationData.conversation && Array.isArray(conversationData.conversation)) {
-                console.log(`📊 ${conversationData.conversation.length} falas identificadas`);
-                res.json({
-                    conversation: conversationData.conversation,
-                    isStructured: true
-                });
-            } else {
-                throw new Error('Formato inválido');
+            } catch (error) {
+                console.error('❌ Erro ao transcrever microfone:', error.message);
             }
-        } catch (parseError) {
-            console.log('⚠️ Não foi possível parsear JSON, retornando texto simples');
-            // Fallback: retornar como texto simples
+        }
+
+        // Transcrever SISTEMA (cliente)
+        if (systemAudioBase64) {
+            try {
+                const base64Audio = systemAudioBase64.replace(/^data:audio\/\w+;base64,/, '');
+
+                const prompt = `Transcreva COMPLETAMENTE este áudio de um CLIENTE/ATENDENTE em uma ligação de vendas.
+
+IMPORTANTE:
+- Este é o áudio do SISTEMA (cliente/atendente do telefone)
+- Transcreva TODAS as falas do cliente/atendente
+- Seja o mais preciso possível
+- Transcreva em português do Brasil
+- Se houver múltiplas falas, separe cada uma
+
+RETORNE APENAS a transcrição em texto simples, sem formatação especial.`;
+
+                console.log('📞 Transcrevendo áudio do SISTEMA (cliente)...');
+
+                const result = await model.generateContent([
+                    {
+                        inlineData: {
+                            mimeType: 'audio/webm',
+                            data: base64Audio
+                        }
+                    },
+                    { text: prompt }
+                ]);
+
+                const response = await result.response;
+                const clienteText = response.text().trim();
+
+                console.log('✅ Sistema transcrito:', clienteText.substring(0, 100) + '...');
+
+                // Adicionar fala do cliente
+                if (clienteText && clienteText.length > 0) {
+                    conversation.push({
+                        speaker: 'cliente',
+                        text: clienteText
+                    });
+                }
+            } catch (error) {
+                console.error('❌ Erro ao transcrever sistema:', error.message);
+            }
+        }
+
+        // Retornar conversa estruturada
+        if (conversation.length > 0) {
+            console.log(`📊 ${conversation.length} participante(s) identificado(s)`);
             res.json({
-                transcription: transcriptionText,
+                conversation: conversation,
+                isStructured: true
+            });
+        } else {
+            // Fallback
+            res.json({
+                transcription: 'Não foi possível transcrever os áudios.',
                 isStructured: false
             });
         }

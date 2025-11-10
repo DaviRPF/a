@@ -14,6 +14,8 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   // Novos estados para gravação de áudio
   const [isRecording, setIsRecording] = useState(false)
   const [audioBlob, setAudioBlob] = useState(null)
+  const [micBlob, setMicBlob] = useState(null) // Áudio do microfone separado
+  const [systemBlob, setSystemBlob] = useState(null) // Áudio do sistema separado
   const [transcription, setTranscription] = useState('')
   const [conversation, setConversation] = useState([]) // Conversa estruturada [{speaker: 'vendedor'|'cliente', text: '...'}]
   const [realtimeTranscript, setRealtimeTranscript] = useState('') // Transcrição em tempo real (só microfone - preview)
@@ -35,8 +37,10 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   const recognitionRef = useRef(null)
   const micAnimationFrameRef = useRef(null)
   const systemAnimationFrameRef = useRef(null)
-  const mediaRecorderRef = useRef(null)
-  const audioChunksRef = useRef([])
+  const micMediaRecorderRef = useRef(null) // MediaRecorder do microfone
+  const systemMediaRecorderRef = useRef(null) // MediaRecorder do sistema
+  const micAudioChunksRef = useRef([]) // Chunks do microfone
+  const systemAudioChunksRef = useRef([]) // Chunks do sistema
 
   useEffect(() => {
     if (prospect) {
@@ -115,7 +119,8 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
 
   const startRecording = async () => {
     try {
-      audioChunksRef.current = []
+      micAudioChunksRef.current = []
+      systemAudioChunksRef.current = []
 
       // Capturar microfone
       const micStream = await navigator.mediaDevices.getUserMedia({
@@ -124,6 +129,26 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
       micStreamRef.current = micStream
       const micAnalyzerData = setupVolumeAnalyzer(micStream, setMicVolume, micAnimationFrameRef)
       micAnalyserRef.current = micAnalyzerData
+
+      // Criar MediaRecorder SEPARADO para o microfone
+      const micMediaRecorder = new MediaRecorder(micStream, {
+        mimeType: 'audio/webm'
+      })
+
+      micMediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          micAudioChunksRef.current.push(event.data)
+        }
+      }
+
+      micMediaRecorder.onstop = () => {
+        const blob = new Blob(micAudioChunksRef.current, { type: 'audio/webm' })
+        setMicBlob(blob)
+        console.log('✅ Gravação do MICROFONE salva, tamanho:', blob.size)
+      }
+
+      micMediaRecorder.start()
+      micMediaRecorderRef.current = micMediaRecorder
 
       // Tentar capturar áudio do sistema
       try {
@@ -145,38 +170,32 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
           const systemAnalyzerData = setupVolumeAnalyzer(systemStream, setSystemVolume, systemAnimationFrameRef)
           systemAnalyserRef.current = systemAnalyzerData
           console.log('✅ Áudio do sistema capturado')
+
+          // Criar MediaRecorder SEPARADO para o sistema
+          const systemMediaRecorder = new MediaRecorder(systemStream, {
+            mimeType: 'audio/webm'
+          })
+
+          systemMediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              systemAudioChunksRef.current.push(event.data)
+            }
+          }
+
+          systemMediaRecorder.onstop = () => {
+            const blob = new Blob(systemAudioChunksRef.current, { type: 'audio/webm' })
+            setSystemBlob(blob)
+            console.log('✅ Gravação do SISTEMA salva, tamanho:', blob.size)
+          }
+
+          systemMediaRecorder.start()
+          systemMediaRecorderRef.current = systemMediaRecorder
         } else {
           systemStream.getTracks().forEach(track => track.stop())
         }
       } catch (err) {
         console.log('❌ Áudio do sistema não capturado:', err.message)
       }
-
-      // Criar MediaRecorder para gravar áudio
-      const audioTracks = [
-        ...micStream.getAudioTracks(),
-        ...(systemStreamRef.current?.getAudioTracks() || [])
-      ]
-      const combinedStream = new MediaStream(audioTracks)
-
-      const mediaRecorder = new MediaRecorder(combinedStream, {
-        mimeType: 'audio/webm'
-      })
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
-        }
-      }
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        setAudioBlob(audioBlob)
-        console.log('✅ Gravação de áudio salva, tamanho:', audioBlob.size)
-      }
-
-      mediaRecorder.start()
-      mediaRecorderRef.current = mediaRecorder
 
       // Iniciar reconhecimento de voz
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -226,10 +245,15 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   }
 
   const stopRecording = async () => {
-    // Parar MediaRecorder
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
-      mediaRecorderRef.current = null
+    // Parar MediaRecorders (ambos)
+    if (micMediaRecorderRef.current && micMediaRecorderRef.current.state !== 'inactive') {
+      micMediaRecorderRef.current.stop()
+      micMediaRecorderRef.current = null
+    }
+
+    if (systemMediaRecorderRef.current && systemMediaRecorderRef.current.state !== 'inactive') {
+      systemMediaRecorderRef.current.stop()
+      systemMediaRecorderRef.current = null
     }
 
     // Parar streams
@@ -275,30 +299,49 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
     setSystemVolume(0)
     setIsRecording(false)
 
-    // Aguardar o audioBlob ser criado (callback do MediaRecorder)
+    // Aguardar os blobs serem criados (callback dos MediaRecorders)
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    // Se tem audioBlob, transcrever com Gemini (captura AMBOS os áudios)
-    if (audioChunksRef.current.length > 0) {
+    // Se tem áudios gravados, transcrever SEPARADAMENTE
+    if (micAudioChunksRef.current.length > 0 || systemAudioChunksRef.current.length > 0) {
       setFlowState('transcribing')
       setIsTranscribing(true)
 
       try {
-        // Criar blob temporário para transcrição
-        const tempBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        // Preparar áudios para envio
+        let micAudioBase64 = null
+        let systemAudioBase64 = null
 
-        // Converter para base64
-        const reader = new FileReader()
-        const audioBase64 = await new Promise((resolve) => {
-          reader.onloadend = () => resolve(reader.result)
-          reader.readAsDataURL(tempBlob)
-        })
+        // Converter microfone para base64
+        if (micAudioChunksRef.current.length > 0) {
+          const micTempBlob = new Blob(micAudioChunksRef.current, { type: 'audio/webm' })
+          const micReader = new FileReader()
+          micAudioBase64 = await new Promise((resolve) => {
+            micReader.onloadend = () => resolve(micReader.result)
+            micReader.readAsDataURL(micTempBlob)
+          })
+          console.log('✅ Áudio do MICROFONE preparado para transcrição')
+        }
 
-        console.log('🎙️ Transcrevendo áudio completo com IA...')
+        // Converter sistema para base64
+        if (systemAudioChunksRef.current.length > 0) {
+          const systemTempBlob = new Blob(systemAudioChunksRef.current, { type: 'audio/webm' })
+          const systemReader = new FileReader()
+          systemAudioBase64 = await new Promise((resolve) => {
+            systemReader.onloadend = () => resolve(systemReader.result)
+            systemReader.readAsDataURL(systemTempBlob)
+          })
+          console.log('✅ Áudio do SISTEMA preparado para transcrição')
+        }
 
-        // Enviar para transcrição com Gemini
+        console.log('🎙️ Transcrevendo áudios SEPARADAMENTE com IA...')
+        console.log('  - Microfone (vendedor):', micAudioBase64 ? 'SIM' : 'NÃO')
+        console.log('  - Sistema (cliente):', systemAudioBase64 ? 'SIM' : 'NÃO')
+
+        // Enviar AMBOS os áudios para transcrição
         const response = await axios.post('/api/transcribe-audio', {
-          audioBase64
+          micAudioBase64,
+          systemAudioBase64
         })
 
         console.log('✅ Transcrição recebida:', response.data)

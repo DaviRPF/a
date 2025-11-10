@@ -716,18 +716,21 @@ TAREFA: Extraia as seguintes informações se estiverem disponíveis:
 2. Capital Social (valor em reais)
 3. Porte da empresa (MEI, ME, EPP, Médio, Grande, etc)
 4. Sócios/Administradores (nomes)
+5. Telefone de contato (formato brasileiro com DDD)
 
 IMPORTANTE:
 - Se não encontrar alguma informação, deixe em branco
 - Retorne APENAS JSON válido
 - Não invente informações
+- Para telefone, retorne no formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
 
 Formato de resposta:
 {
   "cnpj": "XX.XXX.XXX/XXXX-XX ou vazio",
   "capitalSocial": "valor ou vazio",
   "porte": "tipo ou vazio",
-  "socios": "nomes separados por vírgula ou vazio"
+  "socios": "nomes separados por vírgula ou vazio",
+  "telefone": "(XX) XXXXX-XXXX ou vazio"
 }`;
 
         const result = await model.generateContent(prompt);
@@ -889,7 +892,7 @@ export async function checkGoogleMyBusiness(companyName, city, genAI, geminiMode
             return { hasGMB: false };
         }
 
-        // Usar IA para verificar se é o estabelecimento correto
+        // Usar IA para verificar se é o estabelecimento correto E extrair telefone
         const model = genAI.getGenerativeModel({ model: geminiModel });
         const prompt = `Você é um assistente que analisa resultados do Google Meu Negócio.
 
@@ -899,18 +902,22 @@ Cidade: ${city}
 Conteúdo do Knowledge Panel:
 ${pageText.text.substring(0, 2000)}
 
-TAREFA: Determine se este Knowledge Panel é do estabelecimento correto.
+TAREFA: Determine se este Knowledge Panel é do estabelecimento correto e extraia o telefone se disponível.
 
 Verifique se:
 1. O nome corresponde a "${companyName}"
 2. A localização é em "${city}"
 3. Parece ser o mesmo tipo de negócio
 
+E extraia:
+4. Telefone de contato (formato brasileiro com DDD)
+
 Retorne APENAS um JSON:
 {
   "isCorrect": true ou false,
   "confidence": "alta", "média" ou "baixa",
-  "reason": "breve explicação"
+  "reason": "breve explicação",
+  "telefone": "(XX) XXXXX-XXXX ou vazio se não encontrou"
 }`;
 
         const result = await model.generateContent(prompt);
@@ -924,7 +931,12 @@ Retorne APENAS um JSON:
 
         if (analysis.isCorrect) {
             console.log('✅ Tem página no Google Meu Negócio');
-            return { hasGMB: true, gmbUrl: url, confidence: analysis.confidence };
+            const result = { hasGMB: true, gmbUrl: url, confidence: analysis.confidence };
+            if (analysis.telefone && analysis.telefone.trim()) {
+                result.telefone = analysis.telefone;
+                console.log('📞 Telefone encontrado no GMB:', analysis.telefone);
+            }
+            return result;
         } else {
             console.log('⚠️ Knowledge Panel não corresponde ao estabelecimento');
             return { hasGMB: false, reason: analysis.reason };
@@ -941,6 +953,7 @@ export async function enhanceProspectData(prospect, genAI, geminiModel) {
 
     const enhancement = {};
     let cnpjFound = null;
+    const telefonesEncontrados = []; // Array para guardar todos os telefones com suas fontes
 
     // 1. Tentar encontrar CNPJ na Econodata
     const econodataData = await searchEconodata(
@@ -958,6 +971,15 @@ export async function enhanceProspectData(prospect, genAI, geminiModel) {
         enhancement.socios = econodataData.socios || '';
         enhancement.fonte = 'Econodata';
         enhancement.fonteUrl = econodataData.url;
+
+        // Guardar telefone da Econodata se encontrado
+        if (econodataData.telefone && econodataData.telefone.trim()) {
+            telefonesEncontrados.push({
+                numero: econodataData.telefone,
+                fonte: 'Econodata'
+            });
+            console.log('📞 Telefone encontrado na Econodata:', econodataData.telefone);
+        }
     }
 
     // 2. Se não achou na Econodata, buscar no CNPJBiz
@@ -981,6 +1003,15 @@ export async function enhanceProspectData(prospect, genAI, geminiModel) {
         } else {
             enhancement.statusCNPJ = 'CNPJ não encontrado ou empresa não possui CNPJ';
         }
+
+        // Guardar telefone do CNPJBiz se encontrado
+        if (cnpjBizData && cnpjBizData.telefone && cnpjBizData.telefone.trim()) {
+            telefonesEncontrados.push({
+                numero: cnpjBizData.telefone,
+                fonte: 'CNPJBiz'
+            });
+            console.log('📞 Telefone encontrado no CNPJBiz:', cnpjBizData.telefone);
+        }
     }
 
     // 3. Verificar Google Meu Negócio
@@ -994,6 +1025,27 @@ export async function enhanceProspectData(prospect, genAI, geminiModel) {
     enhancement.googleMeuNegocio = gmbData.hasGMB ? 'Sim' : 'Não';
     if (gmbData.gmbUrl) {
         enhancement.googleMeuNegocioUrl = gmbData.gmbUrl;
+    }
+
+    // Guardar telefone do Google Meu Negócio se encontrado
+    if (gmbData.telefone && gmbData.telefone.trim()) {
+        telefonesEncontrados.push({
+            numero: gmbData.telefone,
+            fonte: 'Google Meu Negócio'
+        });
+        console.log('📞 Telefone encontrado no Google Meu Negócio:', gmbData.telefone);
+    }
+
+    // 4. Consolidar telefones encontrados
+    if (telefonesEncontrados.length > 0) {
+        // Criar campo consolidado de telefones
+        const telefonesTexto = telefonesEncontrados
+            .map(t => `${t.numero} (${t.fonte})`)
+            .join(' | ');
+
+        enhancement.telefonesEncontrados = telefonesTexto;
+        console.log('📞 Total de telefones encontrados:', telefonesEncontrados.length);
+        console.log('📞 Telefones consolidados:', telefonesTexto);
     }
 
     console.log('✅ Aperfeiçoamento concluído');
