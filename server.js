@@ -807,33 +807,90 @@ app.get('/api/automation/search', async (req, res) => {
     try {
         sendEvent({ type: 'status', message: 'Iniciando busca no Google...' });
 
-        // Buscar no Google
-        const instagramProfiles = await automation.searchGoogleForInstagram(businessType, city, maxProfiles);
+        // Carregar prospects existentes para verificar duplicatas
+        const existingProspects = readProspects();
+        const existingInstagramUsernames = new Set(
+            existingProspects
+                .map(p => p.instagram?.toLowerCase().trim())
+                .filter(Boolean)
+        );
+        const existingPhones = new Set(
+            existingProspects
+                .map(p => p.telefone?.replace(/\D/g, ''))
+                .filter(Boolean)
+        );
 
-        sendEvent({
-            type: 'status',
-            message: `Encontrados ${instagramProfiles.length} perfis. Extraindo dados...`
-        });
+        console.log(`📊 Base de dados: ${existingProspects.length} prospects existentes`);
+        console.log(`   - ${existingInstagramUsernames.size} Instagram usernames únicos`);
+        console.log(`   - ${existingPhones.size} telefones únicos`);
 
         const fields = readFieldsConfig();
         const extractedProspects = [];
+        const rejectedProspects = [];
+        let processedCount = 0;
+        const maxIterations = 100; // Limitar para evitar loop infinito
 
-        // Processar cada perfil
-        for (let i = 0; i < instagramProfiles.length; i++) {
-            const profile = instagramProfiles[i];
+        // Buscar mais perfis do que o necessário para compensar rejeições
+        let batchSize = Math.max(20, maxProfiles * 2);
+
+        while (extractedProspects.length < maxProfiles && processedCount < maxIterations) {
+            // Buscar perfis do Google
+            const instagramProfiles = await automation.searchGoogleForInstagram(businessType, city, batchSize);
+
+            if (instagramProfiles.length === 0) {
+                sendEvent({ type: 'status', message: 'Nenhum perfil encontrado no Google' });
+                break;
+            }
 
             sendEvent({
-                type: 'progress',
-                current: i + 1,
-                total: instagramProfiles.length,
-                message: `Extraindo dados de @${profile.username}...`
+                type: 'status',
+                message: `Encontrados ${instagramProfiles.length} perfis. Extraindo dados...`
             });
 
-            try {
-                // Extrair dados do perfil
-                const rawData = await automation.extractInstagramData(profile.username);
+            // Processar cada perfil
+            for (let i = 0; i < instagramProfiles.length && extractedProspects.length < maxProfiles; i++) {
+                const profile = instagramProfiles[i];
+                processedCount++;
 
-                if (rawData) {
+                sendEvent({
+                    type: 'progress',
+                    current: extractedProspects.length,
+                    total: maxProfiles,
+                    message: `Extraindo dados de @${profile.username}... (${extractedProspects.length}/${maxProfiles})`
+                });
+
+                try {
+                    // Extrair dados do perfil
+                    const rawData = await automation.extractInstagramData(profile.username);
+
+                    if (!rawData) {
+                        console.log(`⚠️ Não foi possível extrair dados de @${profile.username}`);
+                        continue;
+                    }
+
+                    // Verificar duplicatas por Instagram
+                    const instagramLower = rawData.instagram?.toLowerCase().trim();
+                    if (instagramLower && existingInstagramUsernames.has(instagramLower)) {
+                        rejectedProspects.push({
+                            username: profile.username,
+                            reason: 'Instagram já cadastrado'
+                        });
+                        console.log(`❌ Rejeitado @${profile.username}: Instagram já existe na base`);
+                        continue;
+                    }
+
+                    // Verificar duplicatas por telefone (se houver)
+                    const phoneDigits = rawData.phone?.replace(/\D/g, '');
+                    if (phoneDigits && phoneDigits.length >= 10 && existingPhones.has(phoneDigits)) {
+                        rejectedProspects.push({
+                            username: profile.username,
+                            reason: 'Telefone já cadastrado',
+                            phone: rawData.phone
+                        });
+                        console.log(`❌ Rejeitado @${profile.username}: Telefone ${rawData.phone} já existe na base`);
+                        continue;
+                    }
+
                     // Usar IA para estruturar os dados
                     if (genAI) {
                         const fieldDescriptions = fields.map(f =>
@@ -854,7 +911,9 @@ Cidade: ${city}
 IMPORTANTE:
 - Retorne APENAS JSON válido
 - Use os IDs dos campos como chaves
-- Para "instagram", use apenas o username sem @
+- Para "nome", use EXATAMENTE o nome fornecido acima: "${rawData.name}"
+- Para "instagram", use apenas o username sem @: "${rawData.instagram}"
+- Para "telefone", use: "${rawData.phone}"
 - Para "presencaRedeSocial" ou similar, use "Sim" (está no Instagram)
 - Para "cidade", use SEMPRE: ${city}
 - Se não encontrar info para outros campos, use string vazia
@@ -872,11 +931,18 @@ JSON:`;
                         try {
                             const structuredData = JSON.parse(aiText);
 
-                            // SEMPRE garantir que a cidade está nos dados
+                            // GARANTIR que dados críticos estão presentes
+                            structuredData.nome = rawData.name || structuredData.nome || `Estabelecimento @${rawData.instagram}`;
+                            structuredData.instagram = rawData.instagram;
+                            structuredData.telefone = rawData.phone || structuredData.telefone || '';
                             structuredData.cidade = city;
 
+                            // Adicionar aos aceitos
+                            existingInstagramUsernames.add(instagramLower);
+                            if (phoneDigits) existingPhones.add(phoneDigits);
+
                             extractedProspects.push({
-                                id: Date.now().toString() + '-' + i,
+                                id: Date.now().toString() + '-' + Date.now() + '-' + Math.random(),
                                 data: structuredData,
                                 rawData: rawData,
                                 approved: false
@@ -885,11 +951,13 @@ JSON:`;
                             sendEvent({
                                 type: 'prospect_found',
                                 prospect: {
-                                    id: Date.now().toString() + '-' + i,
+                                    id: Date.now().toString() + '-' + Date.now() + '-' + Math.random(),
                                     data: structuredData,
                                     approved: false
                                 }
                             });
+
+                            console.log(`✅ Aceito (${extractedProspects.length}/${maxProfiles}) @${profile.username}: ${structuredData.nome}`);
                         } catch (e) {
                             console.error('Erro ao parsear resposta da IA:', e);
                         }
@@ -897,16 +965,20 @@ JSON:`;
                         // Sem IA, usar dados brutos
                         const simpleData = {};
                         fields.forEach(field => {
-                            if (field.id === 'nome') simpleData[field.id] = rawData.name;
+                            if (field.id === 'nome') simpleData[field.id] = rawData.name || `Estabelecimento @${rawData.instagram}`;
                             else if (field.id === 'instagram') simpleData[field.id] = rawData.instagram;
                             else if (field.id === 'telefone') simpleData[field.id] = rawData.phone;
-                            else if (field.id === 'cidade') simpleData[field.id] = city; // SEMPRE incluir cidade
+                            else if (field.id === 'cidade') simpleData[field.id] = city;
                             else if (field.id.includes('rede') || field.id.includes('social')) simpleData[field.id] = 'Sim';
                             else simpleData[field.id] = '';
                         });
 
+                        // Adicionar aos aceitos
+                        existingInstagramUsernames.add(instagramLower);
+                        if (phoneDigits) existingPhones.add(phoneDigits);
+
                         extractedProspects.push({
-                            id: Date.now().toString() + '-' + i,
+                            id: Date.now().toString() + '-' + Date.now() + '-' + Math.random(),
                             data: simpleData,
                             rawData: rawData,
                             approved: false
@@ -915,35 +987,58 @@ JSON:`;
                         sendEvent({
                             type: 'prospect_found',
                             prospect: {
-                                id: Date.now().toString() + '-' + i,
+                                id: Date.now().toString() + '-' + Date.now() + '-' + Math.random(),
                                 data: simpleData,
                                 approved: false
                             }
                         });
+
+                        console.log(`✅ Aceito (${extractedProspects.length}/${maxProfiles}) @${profile.username}: ${simpleData.nome}`);
                     }
+                } catch (error) {
+                    console.error(`Erro ao processar @${profile.username}:`, error);
                 }
 
                 // Delay para não sobrecarregar
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            } catch (error) {
-                console.error(`Erro ao processar ${profile.username}:`, error);
-                sendEvent({
-                    type: 'error',
-                    message: `Erro ao processar @${profile.username}: ${error.message}`
-                });
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+
+            // Se não conseguimos prospects suficientes e a busca retornou poucos resultados
+            if (extractedProspects.length < maxProfiles) {
+                if (instagramProfiles.length < batchSize) {
+                    console.log('⚠️ Não há mais perfis disponíveis no Google');
+                    break;
+                }
+            }
+        }
+
+        // Mensagem final
+        let finalMessage = `✅ Busca concluída! ${extractedProspects.length} prospects válidos encontrados`;
+
+        if (rejectedProspects.length > 0) {
+            finalMessage += `\n\n❌ ${rejectedProspects.length} prospects foram rejeitados automaticamente:`;
+            rejectedProspects.slice(0, 10).forEach(r => {
+                finalMessage += `\n• @${r.username}: ${r.reason}`;
+            });
+            if (rejectedProspects.length > 10) {
+                finalMessage += `\n... e mais ${rejectedProspects.length - 10} rejeições`;
             }
         }
 
         sendEvent({
             type: 'complete',
-            message: `Busca concluída! ${extractedProspects.length} prospects encontrados.`,
-            totalFound: extractedProspects.length
+            message: finalMessage,
+            totalFound: extractedProspects.length,
+            totalRejected: rejectedProspects.length
         });
 
         res.end();
     } catch (error) {
-        console.error('Erro na automação:', error);
-        sendEvent({ type: 'error', message: error.message });
+        console.error('Erro na busca:', error);
+        sendEvent({
+            type: 'error',
+            message: `Erro na busca: ${error.message}`
+        });
         res.end();
     }
 });
