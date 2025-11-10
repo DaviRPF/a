@@ -490,6 +490,51 @@ RETORNE APENAS JSON:
     }
 }
 
+// Função para interpretar username do Instagram e extrair nome real com IA
+async function interpretInstagramUsername(username, genAI, geminiModel) {
+    try {
+        const model = genAI.getGenerativeModel({ model: geminiModel });
+
+        // Remover @ se tiver
+        const cleanUsername = username.replace('@', '');
+
+        const prompt = `Você é um assistente que interpreta usernames do Instagram e extrai o nome real do estabelecimento.
+
+Username do Instagram: ${cleanUsername}
+
+TAREFA: Analise o username e extraia o nome REAL e LEGÍVEL do estabelecimento.
+
+Regras:
+- Usernames geralmente juntam palavras sem espaço (ex: pizzariadojose → Pizzaria do José)
+- Podem ter números no final que devem ser ignorados (ex: restaurante123 → Restaurante)
+- Podem ter underscores ou pontos (ex: loja_da_maria → Loja da Maria)
+- Podem ter abreviações (ex: restdojose → Restaurante do José, lanchodalena → Lanchonete da Lena)
+- Capitalize corretamente (primeira letra de cada palavra)
+
+IMPORTANTE: Retorne APENAS o nome do estabelecimento, nada mais. Sem explicações.
+
+Exemplos:
+- pizzariadojose123 → Pizzaria do José
+- lanchonete_central → Lanchonete Central
+- restmanaus → Restaurante Manaus
+- barbearia.style → Barbearia Style
+
+Nome do estabelecimento:`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const interpretedName = response.text().trim();
+
+        console.log(`🤖 IA interpretou "${cleanUsername}" como: "${interpretedName}"`);
+
+        return interpretedName;
+    } catch (error) {
+        console.error('Erro ao interpretar username:', error);
+        // Se falhar, retorna o username limpo
+        return username.replace('@', '').replace(/_/g, ' ').replace(/\./g, ' ');
+    }
+}
+
 // Função principal de aperfeiçoamento
 export async function enhanceProspectData(prospect, genAI, geminiModel) {
     try {
@@ -500,8 +545,19 @@ export async function enhanceProspectData(prospect, genAI, geminiModel) {
             await page.setViewport({ width: 1280, height: 800 });
         }
 
-        const companyName = prospect.data.nome || 'Estabelecimento';
+        // Tentar pegar username do Instagram primeiro
+        let companyName = prospect.data.nome || 'Estabelecimento';
+        const instagram = prospect.data.instagram;
         const city = prospect.data.cidade || '';
+
+        // Se tiver Instagram username, interpretar com IA para pegar o nome real
+        if (instagram) {
+            console.log(`📱 Username do Instagram encontrado: ${instagram}`);
+            companyName = await interpretInstagramUsername(instagram, genAI, geminiModel);
+            console.log(`✨ Nome interpretado para busca: ${companyName}`);
+        } else {
+            console.log(`⚠️ Sem Instagram username, usando nome: ${companyName}`);
+        }
 
         console.log(`\n🔄 Aperfeiçoando: ${companyName} (${city})`);
 
