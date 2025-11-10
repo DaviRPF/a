@@ -446,32 +446,46 @@ TAREFA: Analise a ligação e extraia as seguintes informações:
    - "Reunião marcada" - se agendou uma reunião com o decisor
    - "Não contatado ainda" - se não conseguiu falar com ninguém
 
-2. **Horário/Dia que o Decisor Está Presente**: Se o atendente informou quando o decisor está disponível (ex: "Ele chega às 14h", "Vem segunda e quarta"). Deixe vazio se não informou.
+2. **Horário/Dia que o Decisor Está Presente**:
+   - Descrição GERAL de quando o decisor costuma estar (ex: "Ele chega às 14h", "Vem segunda e quarta", "Tarde toda")
+   - Use texto LIVRE, não é uma data específica
+   - Deixe vazio se não informou
 
-3. **Data e Horário da Reunião**: Se marcou uma reunião, extraia data e horário em formato ISO 8601 (YYYY-MM-DDTHH:mm). Exemplos:
-   - "Segunda-feira, 15/01/2025 às 14h" → "2025-01-15T14:00"
-   - "Amanhã às 10h" → calcular data e retornar "2025-01-11T10:00"
-   - Se a data exata não foi mencionada, deixe vazio
+3. **Data e Horário da Reunião**:
+   - ATENÇÃO: Use OBRIGATORIAMENTE formato ISO 8601: YYYY-MM-DDTHH:mm
+   - Exemplos de conversão:
+     * "Segunda-feira, 15/01/2025 às 14h" → "2025-01-15T14:00"
+     * "Amanhã às 10h" → calcular data de amanhã e retornar "2025-01-11T10:00"
+     * "Dia 20 às 15h30" → "2025-01-20T15:30"
+   - Se a data exata NÃO foi mencionada, deixe VAZIO (não invente)
+   - NUNCA retorne texto livre, SEMPRE formato ISO ou vazio
 
-4. **Contato Pessoal do Decisor**: Se o decisor forneceu número de telefone pessoal, WhatsApp ou celular, retorne no formato brasileiro (XX) XXXXX-XXXX. Deixe vazio se não forneceu.
+4. **Contato Pessoal do Decisor**:
+   - Telefone/WhatsApp/celular do decisor
+   - Formato OBRIGATÓRIO: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+   - Exemplos: "(11) 98765-4321" ou "(11) 3456-7890"
+   - Deixe vazio se não forneceu
 
-5. **Motivo da Objeção do Decisor**: Se o decisor recusou, qual foi o motivo? (ex: "Não tem interesse", "Já tem fornecedor", "Sem tempo"). Deixe vazio se não houve objeção ou não falou com decisor.
+5. **Motivo da Objeção do Decisor**:
+   - Motivo da recusa do decisor (ex: "Não tem interesse", "Já tem fornecedor", "Sem tempo")
+   - Deixe vazio se não houve objeção ou não falou com decisor
 
-6. **Motivo da Objeção do Atendente**: Se o atendente bloqueou a ligação, qual foi o motivo? (ex: "Decisor não está", "Não aceita ligações de vendas"). Deixe vazio se não houve objeção do atendente.
+6. **Motivo da Objeção do Atendente**:
+   - Motivo do bloqueio do atendente (ex: "Decisor não está", "Não aceita ligações de vendas")
+   - Deixe vazio se não houve objeção do atendente
 
-IMPORTANTE:
-- Se não houver informação para algum campo, deixe VAZIO (string vazia "")
-- Seja preciso e extraia exatamente o que foi dito na ligação
-- Para datas/horários de reunião, use SEMPRE formato ISO 8601: YYYY-MM-DDTHH:mm
-- Para telefones, use formato brasileiro: (XX) XXXXX-XXXX
-- Para horário do decisor, pode usar formato natural (ex: "Segunda às 14h")
+REGRAS CRÍTICAS DE FORMATAÇÃO:
+✓ diaHorarioReuniao: SEMPRE "YYYY-MM-DDTHH:mm" ou ""
+✓ contatoPessoalDecisor: SEMPRE "(XX) XXXXX-XXXX" ou ""
+✓ horarioDiaDecisorPresente: texto livre (ex: "Segunda às 14h")
+✓ Se não tiver certeza, deixe VAZIO
 
 RETORNE APENAS JSON:
 {
   "status": "um dos status listados acima",
-  "horarioDiaDecisorPresente": "horário/dia ou vazio",
-  "diaHorarioReuniao": "data/horário ou vazio",
-  "contatoPessoalDecisor": "telefone ou vazio",
+  "horarioDiaDecisorPresente": "texto livre ou vazio",
+  "diaHorarioReuniao": "YYYY-MM-DDTHH:mm ou vazio",
+  "contatoPessoalDecisor": "(XX) XXXXX-XXXX ou vazio",
   "motivoObjecaoDecisor": "motivo ou vazio",
   "motivoObjecaoAtendente": "motivo ou vazio"
 }`;

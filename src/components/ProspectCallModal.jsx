@@ -76,12 +76,14 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   const normalizeFieldValue = (fieldName, value) => {
     if (!value) return ''
 
-    // Normalizar datas para formato datetime-local (YYYY-MM-DDTHH:mm)
-    if (fieldName.includes('data') || fieldName.includes('Data') ||
-        (fieldName.includes('dia') && fieldName.includes('horario'))) {
+    // Lista de campos que devem ser datetime-local
+    const dateTimeFields = ['diaHorarioReuniao', 'dataProximoContato']
+
+    // Normalizar APENAS campos de data/hora específicos
+    if (dateTimeFields.includes(fieldName)) {
       try {
-        // Se já estiver no formato ISO, usar direto
-        if (value.includes('T')) {
+        // Se já estiver no formato ISO correto (YYYY-MM-DDTHH:mm), usar direto
+        if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/)) {
           return value.slice(0, 16) // YYYY-MM-DDTHH:mm
         }
         // Tentar parsear texto livre para data
@@ -91,6 +93,7 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
         }
       } catch (e) {
         // Se não conseguir parsear, retornar valor original
+        console.log(`⚠️ Não foi possível parsear data para ${fieldName}:`, value)
       }
     }
 
@@ -510,8 +513,16 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
         transcript: transcription
       })
 
-      setAiAnalysis(response.data)
-      setEditedAnalysis({ ...response.data }) // Cópia para edição
+      // Normalizar campos de data/hora da resposta da IA
+      const normalizedAnalysis = { ...response.data }
+      if (normalizedAnalysis.diaHorarioReuniao) {
+        normalizedAnalysis.diaHorarioReuniao = normalizeFieldValue('diaHorarioReuniao', normalizedAnalysis.diaHorarioReuniao)
+      }
+
+      console.log('📊 Análise da IA normalizada:', normalizedAnalysis)
+
+      setAiAnalysis(normalizedAnalysis)
+      setEditedAnalysis({ ...normalizedAnalysis }) // Cópia para edição
       setFlowState('approving_analysis')
     } catch (error) {
       console.error('Erro ao analisar transcrição:', error)
@@ -613,28 +624,44 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
   }
 
   const getFieldType = (fieldName) => {
-    // Definir tipo de input baseado no nome do campo
-    if (fieldName.includes('data') || fieldName.includes('Data') ||
-        fieldName.includes('dia') && fieldName.includes('horario')) {
+    // Campos específicos de data/hora (data e hora ESPECÍFICAS, não horários gerais)
+    const dateTimeFields = [
+      'diaHorarioReuniao',      // Data/hora específica da reunião
+      'dataProximoContato'       // Data específica do próximo contato
+    ]
+
+    if (dateTimeFields.includes(fieldName)) {
       return 'datetime-local'
     }
+
+    // Campos de telefone
     if (fieldName.includes('telefone') || fieldName.includes('Telefone') ||
         fieldName.includes('contato') && fieldName.includes('Pessoal')) {
       return 'tel'
     }
+
+    // Campos de email
     if (fieldName.includes('email') || fieldName.includes('Email')) {
       return 'email'
     }
+
+    // Campos de URL
     if (fieldName.includes('Url') || fieldName.includes('site') || fieldName.includes('Site')) {
       return 'url'
     }
+
+    // Campos longos (textarea)
     if (fieldName.includes('motivo') || fieldName.includes('Motivo') ||
-        fieldName.includes('observacoes') || fieldName.includes('socios')) {
+        fieldName.includes('observacoes') || fieldName.includes('socios') ||
+        fieldName === 'horarioDiaDecisorPresente') { // Horário geral, não específico
       return 'textarea'
     }
+
+    // Campos de seleção
     if (fieldName === 'status' || fieldName === 'googleMeuNegocio' || fieldName === 'porte') {
       return 'select'
     }
+
     return 'text'
   }
 
@@ -966,10 +993,9 @@ const ProspectCallModal = ({ isOpen, onClose, prospect, fields = [], onUpdate })
                 <div className="form-group">
                   <label>📅 Data e Horário da Reunião</label>
                   <input
-                    type="text"
+                    type="datetime-local"
                     value={editedAnalysis.diaHorarioReuniao || ''}
                     onChange={(e) => handleAnalysisFieldChange('diaHorarioReuniao', e.target.value)}
-                    placeholder="Ex: Segunda-feira, 15/01 às 14h"
                   />
                 </div>
 
