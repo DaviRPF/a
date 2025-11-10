@@ -35,12 +35,16 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
 
         case 'prospect_enhanced':
           // Atualizar prospect com dados aperfeiçoados
+          console.log('📊 Dados de enhancement recebidos:', data.enhancement)
           setEnhancedProspects(prev =>
-            prev.map(p =>
-              p.tempId === data.tempId
-                ? { ...p, data: { ...p.data, ...data.enhancement } }
-                : p
-            )
+            prev.map(p => {
+              if (p.tempId === data.tempId) {
+                const updated = { ...p, data: { ...p.data, ...data.enhancement } }
+                console.log('✅ Prospect atualizado:', updated.data)
+                return updated
+              }
+              return p
+            })
           )
           break
 
@@ -205,37 +209,51 @@ const EnhancementPanel = ({ isOpen, onClose, prospects, fields, onSaveEnhanced }
                         const value = prospect.data[field.id]
                         if (!value) return null
 
-                        // Para campos com URL, criar link clicável
-                        if (field.id === 'fonteUrl' && prospect.data.fonte) {
+                        // Pular campos de URL que serão exibidos como links em outros campos
+                        if (field.id === 'fonteUrl' || field.id === 'googleMeuNegocioUrl') {
+                          return null
+                        }
+
+                        // Fonte dos Dados - com link se tiver URL
+                        if (field.id === 'fonte') {
                           return (
                             <div key={field.id} className="preview-field enhanced-field">
                               <span className="field-label">{field.icon} {field.label}:</span>
-                              <a
-                                href={value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="field-value enhancement-link"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {prospect.data.fonte}
-                              </a>
+                              {prospect.data.fonteUrl ? (
+                                <a
+                                  href={prospect.data.fonteUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="field-value enhancement-link"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {value}
+                                </a>
+                              ) : (
+                                <span className="field-value">{value}</span>
+                              )}
                             </div>
                           )
                         }
 
-                        if (field.id === 'googleMeuNegocioUrl' && prospect.data.googleMeuNegocio === 'Sim') {
+                        // Google Meu Negócio - com link se for "Sim"
+                        if (field.id === 'googleMeuNegocio') {
                           return (
                             <div key={field.id} className="preview-field enhanced-field">
                               <span className="field-label">{field.icon} {field.label}:</span>
-                              <a
-                                href={value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="field-value enhancement-link"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Ver no Google
-                              </a>
+                              {value === 'Sim' && prospect.data.googleMeuNegocioUrl ? (
+                                <a
+                                  href={prospect.data.googleMeuNegocioUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="field-value enhancement-link"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Sim - Ver no Google
+                                </a>
+                              ) : (
+                                <span className="field-value">{value}</span>
+                              )}
                             </div>
                           )
                         }
