@@ -17,6 +17,25 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     const returns = prospects.filter(p => p.horarioDiaDecisorPresente && p.horarioDiaDecisorPresente.trim())
     const meetings = prospects.filter(p => p.diaHorarioReuniao && p.diaHorarioReuniao.trim())
 
+    console.log('📊 CALENDÁRIO - Carregando agendamentos:')
+    console.log('  - Total de prospects:', prospects.length)
+    console.log('  - Retornos encontrados:', returns.length)
+    console.log('  - Reuniões encontradas:', meetings.length)
+
+    if (returns.length > 0) {
+      console.log('  - Exemplos de retornos:')
+      returns.slice(0, 3).forEach(r => {
+        console.log(`    * ${r.nome}: ${r.horarioDiaDecisorPresente}`)
+      })
+    }
+
+    if (meetings.length > 0) {
+      console.log('  - Exemplos de reuniões:')
+      meetings.slice(0, 3).forEach(m => {
+        console.log(`    * ${m.nome}: ${m.diaHorarioReuniao}`)
+      })
+    }
+
     setSchedules({ returns, meetings })
   }
 
@@ -217,32 +236,45 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
 
   const getSchedulesForDay = (date) => {
     const daySchedules = []
+    const dateStr = date.toLocaleDateString('pt-BR')
 
     // Adicionar retornos
     schedules.returns.forEach(prospect => {
       const scheduleDate = parseScheduleDateTime(prospect.horarioDiaDecisorPresente, 'return')
-      if (scheduleDate && isSameDay(scheduleDate, date)) {
-        daySchedules.push({
-          type: 'return',
-          prospect,
-          date: scheduleDate,
-          duration: 5 // minutos
-        })
+      if (scheduleDate) {
+        const isSame = isSameDay(scheduleDate, date)
+        if (isSame) {
+          console.log(`✅ MATCH - Retorno para ${dateStr}: ${prospect.nome} em ${scheduleDate.toLocaleString('pt-BR')}`)
+          daySchedules.push({
+            type: 'return',
+            prospect,
+            date: scheduleDate,
+            duration: 5 // minutos
+          })
+        }
       }
     })
 
     // Adicionar reuniões
     schedules.meetings.forEach(prospect => {
       const scheduleDate = parseScheduleDateTime(prospect.diaHorarioReuniao, 'meeting')
-      if (scheduleDate && isSameDay(scheduleDate, date)) {
-        daySchedules.push({
-          type: 'meeting',
-          prospect,
-          date: scheduleDate,
-          duration: 60 // minutos
-        })
+      if (scheduleDate) {
+        const isSame = isSameDay(scheduleDate, date)
+        if (isSame) {
+          console.log(`✅ MATCH - Reunião para ${dateStr}: ${prospect.nome} em ${scheduleDate.toLocaleString('pt-BR')}`)
+          daySchedules.push({
+            type: 'meeting',
+            prospect,
+            date: scheduleDate,
+            duration: 60 // minutos
+          })
+        }
       }
     })
+
+    if (daySchedules.length > 0) {
+      console.log(`📌 Dia ${dateStr}: ${daySchedules.length} evento(s)`)
+    }
 
     // Ordenar por horário
     return daySchedules.sort((a, b) => a.date - b.date)
@@ -256,9 +288,19 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     const minutesSince8am = (hour - 8) * 60 + minute
     const pixelsPerMinute = 1 // 1 pixel por minuto
 
+    // Altura mínima de 40px para eventos serem visíveis
+    const minHeight = 40
+    const calculatedHeight = schedule.duration * pixelsPerMinute
+    const finalHeight = Math.max(calculatedHeight, minHeight)
+
+    console.log(`📍 Posicionando evento: ${schedule.prospect.nome}`)
+    console.log(`  - Horário: ${hour}:${minute.toString().padStart(2, '0')}`)
+    console.log(`  - Top: ${minutesSince8am}px (${hour - 8}h${minute}m desde 8h)`)
+    console.log(`  - Height: ${finalHeight}px (duração: ${schedule.duration}min)`)
+
     return {
       top: `${minutesSince8am * pixelsPerMinute}px`,
-      height: `${schedule.duration * pixelsPerMinute}px`
+      height: `${finalHeight}px`
     }
   }
 
@@ -462,24 +504,29 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
                         ))}
 
                         {/* Eventos */}
-                        {daySchedules.map((schedule, idx) => (
-                          <div
-                            key={idx}
-                            className={`event ${schedule.type}`}
-                            style={getEventStyle(schedule)}
-                            title={`${schedule.type === 'return' ? '⏰ Retorno' : '🤝 Reunião'}: ${getFieldValue(schedule.prospect, 'nome')}`}
-                          >
-                            <div className="event-icon">
-                              {schedule.type === 'return' ? '⏰' : '🤝'}
+                        {(() => {
+                          if (daySchedules.length > 0) {
+                            console.log(`🎯 Renderizando ${daySchedules.length} evento(s) para ${dayHeader.dayName} ${dayHeader.dayNumber}`)
+                          }
+                          return daySchedules.map((schedule, idx) => (
+                            <div
+                              key={idx}
+                              className={`event ${schedule.type}`}
+                              style={getEventStyle(schedule)}
+                              title={`${schedule.type === 'return' ? '⏰ Retorno' : '🤝 Reunião'}: ${getFieldValue(schedule.prospect, 'nome')}`}
+                            >
+                              <div className="event-icon">
+                                {schedule.type === 'return' ? '⏰' : '🤝'}
+                              </div>
+                              <div className="event-name">
+                                {getFieldValue(schedule.prospect, 'nome')}
+                              </div>
+                              <div className="event-time">
+                                {schedule.date.getHours()}:{schedule.date.getMinutes().toString().padStart(2, '0')}
+                              </div>
                             </div>
-                            <div className="event-name">
-                              {getFieldValue(schedule.prospect, 'nome')}
-                            </div>
-                            <div className="event-time">
-                              {schedule.date.getHours()}:{schedule.date.getMinutes().toString().padStart(2, '0')}
-                            </div>
-                          </div>
-                        ))}
+                          ))
+                        })()}
                       </div>
                     </div>
                   )
