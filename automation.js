@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { GoogleSERP } from 'serp-parser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -193,35 +194,46 @@ export async function saveSession() {
     }
 }
 
-// Função auxiliar para extrair links do Instagram da página atual
+// Função auxiliar para extrair links do Instagram da página atual usando serp-parser
 async function extractInstagramLinksFromPage() {
     const retries = 3;
 
     for (let i = 0; i < retries; i++) {
         try {
-            const links = await page.evaluate(() => {
-                const linksFound = [];
-                const anchors = document.querySelectorAll('a[href*="instagram.com"]');
+            // Obter o HTML da página
+            const html = await page.content();
 
-                anchors.forEach(anchor => {
-                    const href = anchor.href;
-                    const match = href.match(/instagram\.com\/([^\/\?]+)/);
-                    if (match && match[1] && !['p', 'reel', 'stories', 'explore', 'accounts'].includes(match[1])) {
-                        const username = match[1];
-                        if (!linksFound.find(l => l.username === username)) {
-                            linksFound.push({
-                                username: username,
-                                url: `https://www.instagram.com/${username}/`
-                            });
+            // Parsear com serp-parser
+            const serp = new GoogleSERP(html);
+            const results = serp.serp;
+
+            console.log(`🔍 Serp-parser encontrou ${results.organic?.length || 0} resultados orgânicos`);
+
+            const linksFound = [];
+
+            // Processar resultados orgânicos
+            if (results.organic) {
+                for (const result of results.organic) {
+                    // Verificar se o link é do Instagram
+                    if (result.url && result.url.includes('instagram.com')) {
+                        const match = result.url.match(/instagram\.com\/([^\/\?]+)/);
+                        if (match && match[1] && !['p', 'reel', 'stories', 'explore', 'accounts'].includes(match[1])) {
+                            const username = match[1];
+                            if (!linksFound.find(l => l.username === username)) {
+                                linksFound.push({
+                                    username: username,
+                                    url: `https://www.instagram.com/${username}/`,
+                                    title: result.title || '',
+                                    snippet: result.snippet || ''
+                                });
+                            }
                         }
                     }
-                });
+                }
+            }
 
-                return linksFound;
-            });
-
-            console.log(`✅ Extração bem-sucedida na tentativa ${i + 1} - Encontrados ${links.length} perfis`);
-            return links;
+            console.log(`✅ Extração bem-sucedida na tentativa ${i + 1} - Encontrados ${linksFound.length} perfis do Instagram`);
+            return linksFound;
 
         } catch (evalError) {
             if (evalError.message.includes('Execution context was destroyed')) {
@@ -538,32 +550,27 @@ async function searchWithAI(companyName, city, searchTerm, genAI, geminiModel) {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
-        // Capturar HTML dos resultados
-        const resultsHTML = await page.evaluate(() => {
-            const results = [];
-            const searchResults = document.querySelectorAll('.g, [class*="result"]');
+        // Capturar HTML e parsear com serp-parser
+        const html = await page.content();
+        const serp = new GoogleSERP(html);
+        const serpResults = serp.serp;
 
-            searchResults.forEach((result, idx) => {
-                if (idx < 10) {
-                    const link = result.querySelector('a');
-                    const title = result.querySelector('h3');
-                    const snippet = result.querySelector('[class*="VwiC3b"], .s, [data-sncf]');
-
-                    if (link && title) {
-                        results.push({
-                            index: idx,
-                            url: link.href,
-                            title: title.textContent,
-                            snippet: snippet?.textContent || ''
-                        });
-                    }
+        // Converter para o formato esperado
+        const resultsHTML = [];
+        if (serpResults.organic) {
+            serpResults.organic.forEach((result, idx) => {
+                if (idx < 10 && result.url && result.title) {
+                    resultsHTML.push({
+                        index: idx,
+                        url: result.url,
+                        title: result.title,
+                        snippet: result.snippet || ''
+                    });
                 }
             });
+        }
 
-            return results;
-        });
-
-        console.log(`📄 Encontrados ${resultsHTML.length} resultados`);
+        console.log(`📄 Serp-parser encontrou ${resultsHTML.length} resultados orgânicos`);
 
         if (resultsHTML.length === 0) {
             console.log('⚠️ Nenhum resultado encontrado');

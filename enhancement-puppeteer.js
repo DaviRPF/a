@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 import dotenv from 'dotenv';
+import { GoogleSERP } from 'serp-parser';
 
 dotenv.config();
 
@@ -70,60 +71,50 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
         // Resolver captcha se aparecer
         await solveCaptchaIfNeeded();
 
-        // Procurar link com o domínio correto nos resultados
+        // Procurar link com o domínio correto nos resultados usando serp-parser
         console.log(`🔎 Procurando link do domínio: ${domain}`);
 
-        // MÉTODO CORRIGIDO: Usar seletores específicos da estrutura do Google
-        const targetUrl = await page.evaluate((targetDomain) => {
-            // Seletores específicos dos resultados orgânicos do Google
-            const resultSelectors = [
-                '#search .g a',           // Resultados principais
-                '.yuRUbf > a',            // Link principal de cada resultado
-                '#rso .g a[href]',        // Resultados orgânicos
-                'a[jsname][data-ved]',    // Links com atributos específicos do Google
-                '#search a[ping]'         // Links rastreados pelo Google
-            ];
+        // Usar serp-parser para extrair resultados
+        const html = await page.content();
+        const serp = new GoogleSERP(html);
+        const serpResults = serp.serp;
 
-            // Tentar cada seletor
-            for (const selector of resultSelectors) {
-                const links = document.querySelectorAll(selector);
+        let targetUrl = null;
 
-                for (const link of links) {
+        // Procurar nos resultados orgânicos
+        if (serpResults.organic) {
+            for (const result of serpResults.organic) {
+                if (result.url && result.url.includes(domain)) {
+                    targetUrl = result.url;
+                    console.log(`✓ Link encontrado com serp-parser: ${targetUrl}`);
+                    break;
+                }
+            }
+        }
+
+        // Se não encontrou, tentar fallback manual (caso serp-parser falhe)
+        if (!targetUrl) {
+            console.log('⚠️ Serp-parser não encontrou, usando fallback...');
+            targetUrl = await page.evaluate((targetDomain) => {
+                const allLinks = document.querySelectorAll('#search a[href], #rso a[href]');
+
+                for (const link of allLinks) {
                     const href = link.href;
 
-                    // Verificar se é um resultado válido (não é do Google)
-                    if (!href || href.includes('google.com') || href.includes('youtube.com')) {
-                        continue;
-                    }
-
-                    // Verificar se contém o domínio alvo
-                    if (href.includes(targetDomain)) {
-                        console.log('✓ Link encontrado (seletor:', selector, '):', href);
+                    if (href &&
+                        href.includes(targetDomain) &&
+                        !href.includes('google.com') &&
+                        !href.includes('youtube.com') &&
+                        !href.includes('translate.google') &&
+                        !href.includes('webcache.google')) {
+                        console.log('✓ Link encontrado (fallback):', href);
                         return href;
                     }
                 }
-            }
 
-            // Fallback: procurar em todos os links, mas filtrando melhor
-            console.log('⚠️ Usando fallback - procurando em todos os links...');
-            const allLinks = document.querySelectorAll('#search a[href], #rso a[href]');
-
-            for (const link of allLinks) {
-                const href = link.href;
-
-                if (href &&
-                    href.includes(targetDomain) &&
-                    !href.includes('google.com') &&
-                    !href.includes('youtube.com') &&
-                    !href.includes('translate.google') &&
-                    !href.includes('webcache.google')) {
-                    console.log('✓ Link encontrado (fallback):', href);
-                    return href;
-                }
-            }
-
-            return null;
-        }, domain);
+                return null;
+            }, domain);
+        }
 
         if (!targetUrl) {
             console.log(`❌ Nenhum link do ${siteName} encontrado`);
