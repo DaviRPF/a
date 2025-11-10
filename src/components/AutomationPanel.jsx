@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import ProspectCallModal from './ProspectCallModal'
 import '../styles/AutomationPanel.css'
 
 const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
@@ -16,6 +17,7 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
   const [statusMessage, setStatusMessage] = useState('')
   const [foundProspects, setFoundProspects] = useState([])
   const [eventSource, setEventSource] = useState(null)
+  const [prospectingId, setProspectingId] = useState(null)
 
   // Verificar status de login e carregar tipos ao abrir
   useEffect(() => {
@@ -294,6 +296,14 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
     }
   }
 
+  const handleUpdateProspect = (updatedData) => {
+    setFoundProspects(prev =>
+      prev.map(p =>
+        p.id === prospectingId ? { ...p, data: updatedData } : p
+      )
+    )
+  }
+
   if (!isOpen) return null
 
   return (
@@ -491,6 +501,14 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
                           )
                         ))}
                       </div>
+
+                      {/* Botão de Prospecção */}
+                      <button
+                        className="btn-prospect"
+                        onClick={() => setProspectingId(prospect.id)}
+                      >
+                        📞 Iniciar Prospecção
+                      </button>
                     </div>
                   )
                 })}
@@ -499,6 +517,15 @@ const AutomationPanel = ({ isOpen, onClose, fields, onApproveProspects }) => {
           )}
         </div>
       </div>
+
+      {/* Modal de Prospecção */}
+      <ProspectCallModal
+        isOpen={prospectingId !== null}
+        onClose={() => setProspectingId(null)}
+        prospect={prospectingId !== null ? foundProspects.find(p => p.id === prospectingId) : null}
+        fields={fields}
+        onUpdate={handleUpdateProspect}
+      />
     </div>
   )
 }
