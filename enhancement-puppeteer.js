@@ -123,7 +123,11 @@ async function searchAndClickLink(companyName, city, siteName, domain) {
         const searchQuery = `${companyName} ${city} ${siteName}`;
         const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
 
-        console.log(`🔍 Buscando: ${searchQuery}`);
+        console.log(`🔍 Buscando no Google: "${searchQuery}"`);
+        if (!city || city.trim() === '') {
+            console.log(`⚠️ AVISO: Busca SEM cidade - pode retornar resultados imprecisos`);
+        }
+
         await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(2000);
 
@@ -353,7 +357,10 @@ async function checkGoogleMyBusiness(companyName, city, genAI, geminiModel) {
         const searchQuery = `${companyName} ${city}`;
         const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
 
-        console.log(`🔍 Buscando: ${searchQuery}`);
+        console.log(`🔍 Buscando no Google: "${searchQuery}"`);
+        if (!city || city.trim() === '') {
+            console.log(`⚠️ AVISO: Busca de GMB SEM cidade - pode retornar estabelecimento errado`);
+        }
         await page.goto(googleUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await delay(3000);
 
@@ -449,15 +456,24 @@ async function checkGoogleMyBusiness(companyName, city, genAI, geminiModel) {
 
         // Usar IA para validar se é o estabelecimento correto
         const model = genAI.getGenerativeModel({ model: geminiModel });
-        const prompt = `Determine se este Knowledge Panel é do estabelecimento correto.
+        const cityInfo = city ? `CIDADE: ${city}` : 'CIDADE: Não especificada (aceite qualquer cidade)';
+        const cityCheck = city ? `Verifique se este Knowledge Panel é do estabelecimento "${companyName}" em "${city}".` : `Verifique se este Knowledge Panel é do estabelecimento "${companyName}". Como a cidade não foi especificada, aceite qualquer cidade.`;
+
+        const prompt = `Você é um assistente que verifica se um Knowledge Panel do Google é do estabelecimento correto.
 
 ESTABELECIMENTO PROCURADO: ${companyName}
-CIDADE: ${city}
+${cityInfo}
 
 CONTEÚDO DO KNOWLEDGE PANEL:
 ${hasKnowledgePanel.text.substring(0, 2000)}
 
-TAREFA: Verifique se este Knowledge Panel é realmente do estabelecimento "${companyName}" em "${city}".
+TAREFA: ${cityCheck}
+
+IMPORTANTE:
+- Se o nome do estabelecimento bater (mesmo que parcialmente), considere correto
+- Se a cidade não foi especificada, ignore a validação de cidade
+- Seja PERMISSIVO: em caso de dúvida, prefira retornar true
+- Só retorne false se tiver certeza que é um estabelecimento diferente
 
 RETORNE APENAS JSON:
 {
@@ -472,8 +488,9 @@ RETORNE APENAS JSON:
 
         const analysis = JSON.parse(aiText);
 
-        if (analysis.isCorrect) {
-            console.log(`✅ Google Meu Negócio confirmado! (${analysis.confidence})`);
+        // Aceitar se isCorrect for true OU se confidence for média/alta (ser mais permissivo)
+        if (analysis.isCorrect || (analysis.confidence === 'média' || analysis.confidence === 'alta')) {
+            console.log(`✅ Google Meu Negócio confirmado! (${analysis.confidence}) - ${analysis.reason}`);
             return {
                 hasGMB: true,
                 gmbUrl: googleUrl,
@@ -481,7 +498,7 @@ RETORNE APENAS JSON:
             };
         }
 
-        console.log(`❌ Knowledge Panel não é do estabelecimento: ${analysis.reason}`);
+        console.log(`❌ Knowledge Panel rejeitado: ${analysis.reason}`);
         return { hasGMB: false, reason: analysis.reason };
 
     } catch (error) {
@@ -548,7 +565,9 @@ export async function enhanceProspectData(prospect, genAI, geminiModel) {
         // Tentar pegar username do Instagram primeiro
         let companyName = prospect.data.nome || 'Estabelecimento';
         const instagram = prospect.data.instagram;
-        const city = prospect.data.cidade || '';
+        const city = prospect.data.cidade || prospect.data.city || '';
+
+        console.log(`🏙️ Cidade detectada: "${city}" ${!city ? '(VAZIA - pesquisas podem ser menos precisas)' : ''}`);
 
         // Se tiver Instagram username, interpretar com IA para pegar o nome real
         if (instagram) {
@@ -559,7 +578,7 @@ export async function enhanceProspectData(prospect, genAI, geminiModel) {
             console.log(`⚠️ Sem Instagram username, usando nome: ${companyName}`);
         }
 
-        console.log(`\n🔄 Aperfeiçoando: ${companyName} (${city})`);
+        console.log(`\n🔄 Aperfeiçoando: ${companyName} ${city ? `(${city})` : '(sem cidade)'}`);
 
         let enhancement = {
             cnpj: '',
