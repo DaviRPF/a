@@ -148,6 +148,8 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
   const parseScheduleDateTime = (scheduleText, type) => {
     if (!scheduleText) return null
 
+    console.log('🔍 Tentando parsear:', scheduleText)
+
     // PRIORIDADE 1: Formato ISO 8601 (YYYY-MM-DDTHH:mm)
     const isoMatch = scheduleText.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
     if (isoMatch) {
@@ -159,7 +161,38 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
         parseInt(hour),
         parseInt(minute)
       )
-      console.log('📅 Data ISO parseada:', scheduleText, '→', date)
+      console.log('📅 Data ISO parseada:', scheduleText, '→', date.toLocaleString('pt-BR'))
+      return date
+    }
+
+    // PRIORIDADE 2: Formato DD/MM/YYYY HH:mm ou DD/MM/YYYY às HH:mm
+    const fullDateMatch = scheduleText.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às?\s*)?(\d{1,2}):(\d{2})/)
+    if (fullDateMatch) {
+      const [_, day, month, year, hour, minute] = fullDateMatch
+      const date = new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute)
+      )
+      console.log('📅 Data DD/MM/YYYY HH:mm parseada:', scheduleText, '→', date.toLocaleString('pt-BR'))
+      return date
+    }
+
+    // PRIORIDADE 3: Formato DD/MM/YYYY (sem hora)
+    const dateOnlyMatch = scheduleText.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+    if (dateOnlyMatch) {
+      const [_, day, month, year] = dateOnlyMatch
+      const hour = type === 'return' ? 9 : 14
+      const date = new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        hour,
+        0
+      )
+      console.log('📅 Data DD/MM/YYYY parseada:', scheduleText, '→', date.toLocaleString('pt-BR'))
       return date
     }
 
@@ -167,10 +200,10 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     const today = new Date()
     const lowerText = scheduleText.toLowerCase()
 
-    // Tentar extrair data no formato DD/MM
+    // Tentar extrair data no formato DD/MM (sem ano)
     const dateMatch = scheduleText.match(/(\d{1,2})\/(\d{1,2})/)
     // Tentar extrair horário
-    const timeMatch = scheduleText.match(/(\d{1,2}):?(\d{2})?(?:h|hs|horas)?/)
+    const timeMatch = scheduleText.match(/(\d{1,2}):(\d{2})/) || scheduleText.match(/(\d{1,2})(?:h|hs|horas)/)
 
     let targetDate = new Date(today)
     let hour = type === 'return' ? 9 : 14 // Default: retornos às 9h, reuniões às 14h
@@ -192,6 +225,15 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
       targetDate = getNextWeekday(4)
     } else if (lowerText.includes('sexta')) {
       targetDate = getNextWeekday(5)
+    } else if (lowerText.includes('sábado') || lowerText.includes('sabado')) {
+      targetDate = getNextWeekday(6)
+    } else if (lowerText.includes('domingo')) {
+      targetDate = getNextWeekday(0)
+    } else if (lowerText.includes('hoje')) {
+      // Já é hoje, não precisa mudar
+    } else {
+      console.log('⚠️ Não conseguiu extrair data de:', scheduleText)
+      return null // Não conseguiu parsear, retorna null
     }
 
     if (timeMatch) {
@@ -200,7 +242,7 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     }
 
     targetDate.setHours(hour, minute, 0, 0)
-    console.log('📅 Data texto livre parseada:', scheduleText, '→', targetDate)
+    console.log('📅 Data texto livre parseada:', scheduleText, '→', targetDate.toLocaleString('pt-BR'))
     return targetDate
   }
 
@@ -284,8 +326,19 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     const hour = schedule.date.getHours()
     const minute = schedule.date.getMinutes()
 
-    // Converter para minutos desde 8h
-    const minutesSince8am = (hour - 8) * 60 + minute
+    // Converter para minutos desde 8h (clamped para ficar dentro do calendário)
+    let minutesSince8am = (hour - 8) * 60 + minute
+
+    // Garantir que eventos antes das 8h apareçam no topo
+    if (minutesSince8am < 0) {
+      minutesSince8am = 0
+    }
+
+    // Garantir que eventos depois das 17h não saiam do calendário
+    if (minutesSince8am > 540) { // 9h de range (8h às 17h = 540 minutos)
+      minutesSince8am = 540
+    }
+
     const pixelsPerMinute = 1 // 1 pixel por minuto
 
     // Altura mínima de 40px para eventos serem visíveis
@@ -295,8 +348,8 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
 
     console.log(`📍 Posicionando evento: ${schedule.prospect.nome}`)
     console.log(`  - Horário: ${hour}:${minute.toString().padStart(2, '0')}`)
-    console.log(`  - Top: ${minutesSince8am}px (${hour - 8}h${minute}m desde 8h)`)
-    console.log(`  - Height: ${finalHeight}px (duração: ${schedule.duration}min)`)
+    console.log(`  - Top: ${minutesSince8am}px`)
+    console.log(`  - Height: ${finalHeight}px`)
 
     return {
       top: `${minutesSince8am * pixelsPerMinute}px`,
