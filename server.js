@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = 3010;
 const DATA_FILE = path.join(__dirname, 'prospects.json');
 const FIELDS_CONFIG_FILE = path.join(__dirname, 'fields-config.json');
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
