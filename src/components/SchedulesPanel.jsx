@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import ProspectCallModal from './ProspectCallModal'
 import '../styles/SchedulesPanel.css'
 
-const SchedulesPanel = ({ prospects = [], fields = [] }) => {
+const SchedulesPanel = ({ prospects = [], fields = [], onProspectUpdate }) => {
   const [schedules, setSchedules] = useState({ returns: [], meetings: [] })
   const [weekOffset, setWeekOffset] = useState(0) // 0 = semana atual, 1 = próxima, -1 = anterior
   const [showMonthView, setShowMonthView] = useState(false)
   const [monthOffset, setMonthOffset] = useState(0) // 0 = mês atual
+  const [selectedProspect, setSelectedProspect] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     loadSchedules()
@@ -37,6 +40,25 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
     }
 
     setSchedules({ returns, meetings })
+  }
+
+  const openProspectModal = (prospect) => {
+    setSelectedProspect(prospect)
+    setIsModalOpen(true)
+  }
+
+  const closeProspectModal = () => {
+    setIsModalOpen(false)
+    setSelectedProspect(null)
+  }
+
+  const handleProspectUpdate = (updatedProspect) => {
+    // Notificar o App.jsx para atualizar a lista
+    if (onProspectUpdate) {
+      onProspectUpdate(updatedProspect)
+    }
+    // Recarregar os agendamentos
+    loadSchedules()
   }
 
   const getFieldValue = (prospect, fieldId) => {
@@ -379,7 +401,12 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
             ) : (
               <div className="schedules-list">
                 {schedules.returns.map(prospect => (
-                  <div key={prospect.id} className="schedule-card return-card">
+                  <div
+                    key={prospect.id}
+                    className="schedule-card return-card clickable"
+                    onClick={() => openProspectModal(prospect)}
+                    title="Clique para editar"
+                  >
                     <div className="schedule-header">
                       <h4>{getFieldIcon('nome')} {getFieldValue(prospect, 'nome')}</h4>
                       {prospect.status && (
@@ -414,6 +441,10 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
                         </div>
                       )}
                     </div>
+
+                    <div className="card-click-hint">
+                      📝 Clique para editar
+                    </div>
                   </div>
                 ))}
               </div>
@@ -435,7 +466,12 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
             ) : (
               <div className="schedules-list">
                 {schedules.meetings.map(prospect => (
-                  <div key={prospect.id} className="schedule-card meeting-card">
+                  <div
+                    key={prospect.id}
+                    className="schedule-card meeting-card clickable"
+                    onClick={() => openProspectModal(prospect)}
+                    title="Clique para editar"
+                  >
                     <div className="schedule-header">
                       <h4>{getFieldIcon('nome')} {getFieldValue(prospect, 'nome')}</h4>
                       <span className="schedule-status meeting-status">Reunião marcada</span>
@@ -489,6 +525,10 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
                           <span className="info-value">{getFieldValue(prospect, 'tipoEstabelecimento')}</span>
                         </div>
                       )}
+                    </div>
+
+                    <div className="card-click-hint">
+                      📝 Clique para editar
                     </div>
                   </div>
                 ))}
@@ -649,6 +689,15 @@ const SchedulesPanel = ({ prospects = [], fields = [] }) => {
           </div>
         </div>
       )}
+
+      {/* Modal de Prospecção */}
+      <ProspectCallModal
+        isOpen={isModalOpen}
+        onClose={closeProspectModal}
+        prospect={selectedProspect}
+        fields={fields}
+        onUpdate={handleProspectUpdate}
+      />
     </div>
   )
 }

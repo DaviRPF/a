@@ -76,6 +76,32 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
+.schedule-card.clickable {
+  cursor: pointer;
+}
+
+.schedule-card.clickable:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary);
+}
+
+.card-click-hint {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #ddd;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #888;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.schedule-card.clickable:hover .card-click-hint {
+  opacity: 1;
+  color: var(--primary);
+}
+
 .return-card {
   border-left: 4px solid #ffc107;
 }

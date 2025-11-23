@@ -231,6 +231,9 @@ function App() {
           <SchedulesPanel
             prospects={prospects}
             fields={fields}
+            onProspectUpdate={(updatedProspect) => {
+              setProspects(prev => prev.map(p => p.id === updatedProspect.id ? updatedProspect : p))
+            }}
           />
         )}
       </div>
