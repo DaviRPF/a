@@ -38,24 +38,6 @@
   justify-content: center;
 }
 
-.btn-automation {
-  background: var(--gradient);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 1rem;
-  box-shadow: 0 4px 12px var(--shadow-colored);
-}
-
-.btn-automation:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--shadow-colored);
-}
-
 .btn-schedules {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   color: white;

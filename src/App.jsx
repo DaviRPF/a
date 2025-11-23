@@ -3,8 +3,6 @@ import ProspectForm from './components/ProspectForm'
 import ProspectList from './components/ProspectList'
 import StatusFilter from './components/StatusFilter'
 import FieldsManager from './components/FieldsManager'
-import AutomationPanel from './components/AutomationPanel'
-import EnhancementPanel from './components/EnhancementPanel'
 import SettingsPanel from './components/SettingsPanel'
 import SchedulesPanel from './components/SchedulesPanel'
 import Toast from './components/Toast'
@@ -22,11 +20,8 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState(null)
   const [showFieldsManager, setShowFieldsManager] = useState(false)
-  const [showAutomation, setShowAutomation] = useState(false)
-  const [showEnhancement, setShowEnhancement] = useState(false)
-  const [approvedProspects, setApprovedProspects] = useState([])
   const [showSettings, setShowSettings] = useState(false)
-  const [activeTab, setActiveTab] = useState('organizador') // 'organizador', 'pendentes', 'aperfeicoar', 'agendamentos'
+  const [activeTab, setActiveTab] = useState('organizador') // 'organizador', 'pendentes', 'agendamentos'
 
   // Carregar prospects e campos ao montar o componente
   useEffect(() => {
@@ -131,35 +126,6 @@ function App() {
     }
   }
 
-  // Aprovar prospects em lote (vindo da automação) - agora abre painel de aperfeiçoamento
-  const handleApproveProspects = (prospectsData) => {
-    // Fechar painel de automação
-    setShowAutomation(false)
-
-    // Guardar prospects aprovados e abrir aba de aperfeiçoamento
-    setApprovedProspects(prospectsData)
-    setActiveTab('aperfeicoar')
-  }
-
-  // Salvar prospects aperfeiçoados
-  const handleSaveEnhancedProspects = async (enhancedProspects) => {
-    try {
-      console.log('💾 Salvando prospects aperfeiçoados:', enhancedProspects)
-      for (const prospect of enhancedProspects) {
-        console.log('📤 Enviando prospect.data:', prospect.data)
-        const newProspect = await createProspect(prospect.data)
-        console.log('✅ Prospect salvo:', newProspect)
-        setProspects(prev => [...prev, newProspect])
-      }
-      showToast(`${enhancedProspects.length} prospects adicionados!`, 'success')
-      setActiveTab('organizador')
-      setApprovedProspects([])
-    } catch (error) {
-      console.error('❌ Erro ao salvar prospects:', error)
-      showToast('Erro ao adicionar prospects', 'error')
-    }
-  }
-
   const showToast = (message, type) => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
@@ -171,12 +137,6 @@ function App() {
         <h1>📋 Organizador de Prospects</h1>
         <p className="subtitle">Gerencie seus prospects de forma profissional</p>
         <div className="header-buttons">
-          <button
-            className="btn-automation"
-            onClick={() => setShowAutomation(true)}
-          >
-            🤖 Geração Automática
-          </button>
           <button
             className="btn-config"
             onClick={() => setShowFieldsManager(!showFieldsManager)}
@@ -205,12 +165,6 @@ function App() {
           onClick={() => setActiveTab('pendentes')}
         >
           ⏳ Pendentes
-        </button>
-        <button
-          className={`tab ${activeTab === 'aperfeicoar' ? 'active' : ''}`}
-          onClick={() => setActiveTab('aperfeicoar')}
-        >
-          ✨ Aperfeiçoar
         </button>
         <button
           className={`tab ${activeTab === 'agendamentos' ? 'active' : ''}`}
@@ -272,33 +226,6 @@ function App() {
           </section>
         )}
 
-        {/* Aba Aperfeiçoar */}
-        {activeTab === 'aperfeicoar' && (
-          <section className="section">
-            {approvedProspects.length > 0 ? (
-              <EnhancementPanel
-                isOpen={true}
-                onClose={() => {
-                  setActiveTab('organizador')
-                  setApprovedProspects([])
-                }}
-                prospects={approvedProspects}
-                fields={fields}
-                onSaveEnhanced={handleSaveEnhancedProspects}
-              />
-            ) : (
-              <>
-                <h2 className="section-title">✨ Aperfeiçoar Prospects</h2>
-                <p className="section-subtitle">Use a Geração Automática para trazer prospects aqui</p>
-                <div className="empty-state" style={{marginTop: '40px'}}>
-                  <p>📭 Nenhum prospect para aperfeiçoar</p>
-                  <small>Clique em "🤖 Geração Automática" para começar</small>
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
         {/* Aba Agendamentos */}
         {activeTab === 'agendamentos' && (
           <SchedulesPanel
@@ -307,13 +234,6 @@ function App() {
           />
         )}
       </div>
-
-      <AutomationPanel
-        isOpen={showAutomation}
-        onClose={() => setShowAutomation(false)}
-        fields={fields}
-        onApproveProspects={handleApproveProspects}
-      />
 
       <SettingsPanel
         isOpen={showSettings}
