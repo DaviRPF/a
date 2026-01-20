@@ -5,10 +5,14 @@ import StatusFilter from './components/StatusFilter'
 import FieldsManager from './components/FieldsManager'
 import SettingsPanel from './components/SettingsPanel'
 import SchedulesPanel from './components/SchedulesPanel'
+import NotesProcessor from './components/NotesProcessor'
+import PendingLeadsReview from './components/PendingLeadsReview'
 import Toast from './components/Toast'
 import {
   fetchProspects, createProspect, updateProspect, deleteProspect,
-  fetchFields, createField, updateField, deleteField
+  fetchFields, createField, updateField, deleteField,
+  processNotesWithAI, fetchPendingLeads, approvePendingLead,
+  rejectPendingLead, approveAllPendingLeads
 } from './services/api'
 import './styles/App.css'
 
@@ -22,11 +26,15 @@ function App() {
   const [showFieldsManager, setShowFieldsManager] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [activeTab, setActiveTab] = useState('organizador') // 'organizador', 'pendentes', 'agendamentos'
+  const [pendingLeads, setPendingLeads] = useState([])
+  const [processingNotes, setProcessingNotes] = useState(false)
+  const [pendingLoading, setPendingLoading] = useState(false)
 
-  // Carregar prospects e campos ao montar o componente
+  // Carregar prospects, campos e leads pendentes ao montar o componente
   useEffect(() => {
     loadProspects()
     loadFields()
+    loadPendingLeads()
   }, [])
 
   // Filtrar prospects quando o filtro ou lista mudar
@@ -56,6 +64,99 @@ function App() {
       setFields(data)
     } catch (error) {
       showToast('Erro ao carregar campos', 'error')
+    }
+  }
+
+  const loadPendingLeads = async () => {
+    try {
+      const data = await fetchPendingLeads()
+      setPendingLeads(data)
+    } catch (error) {
+      console.error('Erro ao carregar leads pendentes:', error)
+    }
+  }
+
+  // Processar anotacoes com IA
+  const handleProcessNotes = async (notes) => {
+    try {
+      setProcessingNotes(true)
+      const result = await processNotesWithAI(notes)
+
+      if (result.success) {
+        await loadPendingLeads()
+        showToast(`${result.summary?.total || 0} leads processados!`, 'success')
+        setActiveTab('pendentes')
+      } else {
+        showToast('Erro ao processar anotacoes', 'error')
+      }
+    } catch (error) {
+      console.error('Erro ao processar anotacoes:', error)
+      showToast('Erro ao processar anotacoes com IA', 'error')
+    } finally {
+      setProcessingNotes(false)
+    }
+  }
+
+  // Aprovar lead pendente
+  const handleApproveLead = async (index) => {
+    try {
+      setPendingLoading(true)
+      const result = await approvePendingLead(index)
+
+      if (result.success) {
+        await loadPendingLeads()
+        await loadProspects()
+        showToast(
+          result.wasUpdate ? 'Lead atualizado!' : 'Lead criado!',
+          'success'
+        )
+      }
+    } catch (error) {
+      console.error('Erro ao aprovar lead:', error)
+      showToast('Erro ao aprovar lead', 'error')
+    } finally {
+      setPendingLoading(false)
+    }
+  }
+
+  // Rejeitar lead pendente
+  const handleRejectLead = async (index) => {
+    try {
+      setPendingLoading(true)
+      await rejectPendingLead(index)
+      await loadPendingLeads()
+      showToast('Lead rejeitado', 'info')
+    } catch (error) {
+      console.error('Erro ao rejeitar lead:', error)
+      showToast('Erro ao rejeitar lead', 'error')
+    } finally {
+      setPendingLoading(false)
+    }
+  }
+
+  // Aprovar todos os leads pendentes
+  const handleApproveAllLeads = async () => {
+    if (!window.confirm(`Aprovar todos os ${pendingLeads.length} leads pendentes?`)) {
+      return
+    }
+
+    try {
+      setPendingLoading(true)
+      const result = await approveAllPendingLeads()
+
+      if (result.success) {
+        await loadPendingLeads()
+        await loadProspects()
+        showToast(
+          `${result.created} criados, ${result.updated} atualizados!`,
+          'success'
+        )
+      }
+    } catch (error) {
+      console.error('Erro ao aprovar todos:', error)
+      showToast('Erro ao aprovar todos os leads', 'error')
+    } finally {
+      setPendingLoading(false)
     }
   }
 
@@ -164,7 +265,10 @@ function App() {
           className={`tab ${activeTab === 'pendentes' ? 'active' : ''}`}
           onClick={() => setActiveTab('pendentes')}
         >
-          ⏳ Pendentes
+          Pendentes
+          {pendingLeads.length > 0 && (
+            <span className="tab-badge">{pendingLeads.length}</span>
+          )}
         </button>
         <button
           className={`tab ${activeTab === 'agendamentos' ? 'active' : ''}`}
@@ -217,12 +321,26 @@ function App() {
         {/* Aba Pendentes */}
         {activeTab === 'pendentes' && (
           <section className="section">
-            <h2 className="section-title">⏳ Prospects Pendentes</h2>
-            <p className="section-subtitle">Prospects aguardando processamento ou aprovação</p>
-            <div className="empty-state" style={{marginTop: '40px'}}>
-              <p>Em desenvolvimento</p>
-              <small>Esta funcionalidade será implementada em breve</small>
+            <h2 className="section-title">Processar Anotacoes</h2>
+            <p className="section-subtitle">Cole suas anotacoes de prospecao e deixe a IA organizar para voce</p>
+
+            <NotesProcessor
+              onProcessNotes={handleProcessNotes}
+              loading={processingNotes}
+            />
+
+            <div className="pending-divider">
+              <span>Leads para Revisao</span>
             </div>
+
+            <PendingLeadsReview
+              pendingLeads={pendingLeads}
+              fields={fields}
+              onApprove={handleApproveLead}
+              onReject={handleRejectLead}
+              onApproveAll={handleApproveAllLeads}
+              loading={pendingLoading}
+            />
           </section>
         )}
 

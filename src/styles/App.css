@@ -118,6 +118,35 @@
   box-shadow: 0 6px 16px var(--shadow-colored);
 }
 
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  margin-left: 8px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 11px;
+  animation: pulse 2s infinite;
+}
+
+.tab.active .tab-badge {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 .container {
   max-width: 1400px;
   margin: 0 auto;
@@ -150,6 +179,35 @@
   margin-bottom: 25px;
   flex-wrap: wrap;
   gap: 20px;
+}
+
+.section-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin: -15px 0 25px 0;
+}
+
+.pending-divider {
+  display: flex;
+  align-items: center;
+  margin: 40px 0 24px;
+  gap: 16px;
+}
+
+.pending-divider::before,
+.pending-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.3), transparent);
+}
+
+.pending-divider span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 @keyframes slideDown {

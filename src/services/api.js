@@ -58,4 +58,36 @@ export const extractWithAI = async (text) => {
   return response.data
 }
 
+export const processNotesWithAI = async (notes) => {
+  const response = await api.post('/ai/process-notes', { notes })
+  return response.data
+}
+
+// ============= API de Leads Pendentes =============
+
+export const fetchPendingLeads = async () => {
+  const response = await api.get('/pending-prospects')
+  return response.data
+}
+
+export const approvePendingLead = async (index) => {
+  const response = await api.post(`/pending-prospects/${index}/approve`)
+  return response.data
+}
+
+export const rejectPendingLead = async (index) => {
+  const response = await api.post(`/pending-prospects/${index}/reject`)
+  return response.data
+}
+
+export const approveAllPendingLeads = async () => {
+  const response = await api.post('/pending-prospects/approve-all')
+  return response.data
+}
+
+export const clearPendingLeads = async () => {
+  const response = await api.delete('/pending-prospects')
+  return response.data
+}
+
 export default api

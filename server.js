@@ -821,6 +821,304 @@ app.post('/api/business-types', (req, res) => {
     }
 });
 
+// ============= ROTA DE IA - PROCESSAMENTO DE ANOTAÇÕES SOLTAS =============
+
+// POST - Processar anotações soltas e gerar múltiplos leads
+app.post('/api/ai/process-notes', async (req, res) => {
+    try {
+        if (!genAI) {
+            return res.status(503).json({
+                error: 'API do Gemini não configurada. Configure a variável GEMINI_API_KEY no arquivo .env'
+            });
+        }
+
+        const { notes } = req.body;
+        const fields = readFieldsConfig();
+        const existingProspects = readProspects();
+
+        if (!notes) {
+            return res.status(400).json({ error: 'Anotações não fornecidas' });
+        }
+
+        // Preparar descrição dos campos
+        const fieldDescriptions = fields.map(f =>
+            `- ${f.id}: ${f.label} (tipo: ${f.type}${f.options ? ', opções: ' + f.options.join(', ') : ''})`
+        ).join('\n');
+
+        // Preparar lista de prospects existentes para verificação de duplicados
+        const existingNames = existingProspects.map(p => ({
+            id: p.id,
+            nome: p.nome || '',
+            telefone: p.telefone || '',
+            instagram: p.instagram || ''
+        }));
+
+        const prompt = `Você é um assistente especializado em processar anotações de prospecção comercial.
+
+ANOTAÇÕES DO USUÁRIO:
+"""
+${notes}
+"""
+
+CAMPOS DISPONÍVEIS NO CRM:
+${fieldDescriptions}
+
+PROSPECTS JÁ EXISTENTES NO CRM (para verificar duplicados):
+${JSON.stringify(existingNames, null, 2)}
+
+TAREFA:
+1. Identifique CADA empresa/lead mencionado nas anotações
+2. Para cada empresa, extraia todas as informações disponíveis
+3. Determine o STATUS correto baseado no contexto:
+   - "Não contatado ainda" - se não tentou contato ou vai prospectar
+   - "Contato com atendente" - se falou com atendente mas não com decisor
+   - "Contato com decisor" - se falou com o decisor/dono
+   - "Objeção do atendente" - se atendente bloqueou/negou
+   - "Objeção do decisor" - se decisor recusou
+   - "Reunião marcada" - se agendou reunião
+   - "Continuidade do whatsapp" - se vai continuar por WhatsApp
+4. VERIFIQUE SE JÁ EXISTE no CRM (compare nomes similares, telefones, etc)
+5. Se existir, sugira ATUALIZAÇÃO com os novos dados
+
+REGRAS:
+- Cada linha geralmente é uma empresa diferente
+- Interprete anotações informais (ex: "não atendeu", "recusou", "retornar às 14h")
+- Se mencionar nome de pessoa, identifique se é atendente ou decisor
+- Extraia telefones, horários, motivos de objeção, etc
+- Use status em português EXATAMENTE como listado acima
+
+FORMATO DE RESPOSTA (JSON):
+{
+  "leads": [
+    {
+      "isNew": true,
+      "isDuplicate": false,
+      "existingId": null,
+      "confidence": 0.9,
+      "data": {
+        "nome": "Nome da Empresa",
+        "status": "Status apropriado",
+        "telefone": "",
+        "tipoEstabelecimento": "",
+        ... outros campos ...
+      },
+      "changes": null,
+      "notes": "Observações sobre este lead"
+    },
+    {
+      "isNew": false,
+      "isDuplicate": true,
+      "existingId": "id-do-prospect-existente",
+      "confidence": 0.85,
+      "data": { ... dados atualizados ... },
+      "changes": ["status", "horarioDiaDecisorPresente"],
+      "notes": "Lead já existe, sugerindo atualização de status"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "new": 3,
+    "updates": 2,
+    "unprocessed": 0
+  }
+}
+
+IMPORTANTE:
+- Retorne APENAS JSON válido
+- confidence: 0-1, quanto maior, mais certeza na extração
+- isNew: true se é lead novo, false se é atualização
+- isDuplicate: true se encontrou duplicado no CRM
+- existingId: ID do prospect existente se for duplicado
+- changes: lista de campos que mudaram (para atualizações)
+- Se uma linha não parecer ser um lead, ignore-a`;
+
+        const settings = readSettings();
+        const model = genAI.getGenerativeModel({ model: settings.geminiModel });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let aiText = response.text();
+
+        // Limpar markdown code blocks se houver
+        aiText = aiText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        // Parsear resposta JSON
+        const processedData = JSON.parse(aiText);
+
+        // Salvar leads processados como pendentes para revisão
+        const pendingLeads = processedData.leads.map(lead => ({
+            ...lead,
+            processedAt: new Date().toISOString(),
+            reviewed: false
+        }));
+
+        // Adicionar aos prospects pendentes existentes
+        const existingPending = readPendingProspects();
+        const newPending = [...existingPending, ...pendingLeads];
+        savePendingProspects(newPending);
+
+        res.json({
+            success: true,
+            ...processedData,
+            pendingCount: newPending.length
+        });
+
+    } catch (error) {
+        console.error('Erro ao processar anotações com IA:', error);
+        res.status(500).json({
+            error: 'Erro ao processar anotações com IA',
+            details: error.message
+        });
+    }
+});
+
+// POST - Aprovar lead pendente (criar ou atualizar)
+app.post('/api/pending-prospects/:index/approve', (req, res) => {
+    try {
+        const index = parseInt(req.params.index);
+        const pendingProspects = readPendingProspects();
+
+        if (index < 0 || index >= pendingProspects.length) {
+            return res.status(404).json({ error: 'Lead pendente não encontrado' });
+        }
+
+        const lead = pendingProspects[index];
+        const prospects = readProspects();
+        const fields = readFieldsConfig();
+
+        let resultProspect;
+
+        if (lead.isDuplicate && lead.existingId) {
+            // Atualizar prospect existente
+            const existingIndex = prospects.findIndex(p => p.id === lead.existingId);
+            if (existingIndex !== -1) {
+                prospects[existingIndex] = {
+                    ...prospects[existingIndex],
+                    ...lead.data,
+                    id: lead.existingId,
+                    atualizadoEm: new Date().toISOString()
+                };
+                resultProspect = prospects[existingIndex];
+                saveProspects(prospects);
+            } else {
+                return res.status(404).json({ error: 'Prospect original não encontrado para atualização' });
+            }
+        } else {
+            // Criar novo prospect
+            const newProspect = {
+                id: Date.now().toString(),
+                status: lead.data.status || 'Não contatado ainda',
+                criadoEm: new Date().toISOString()
+            };
+
+            // Adicionar todos os campos
+            fields.forEach(field => {
+                newProspect[field.id] = lead.data[field.id] || '';
+            });
+
+            prospects.push(newProspect);
+            saveProspects(prospects);
+            resultProspect = newProspect;
+        }
+
+        // Remover do pendentes
+        pendingProspects.splice(index, 1);
+        savePendingProspects(pendingProspects);
+
+        res.json({
+            success: true,
+            prospect: resultProspect,
+            wasUpdate: lead.isDuplicate,
+            remainingPending: pendingProspects.length
+        });
+
+    } catch (error) {
+        console.error('Erro ao aprovar lead:', error);
+        res.status(500).json({ error: 'Erro ao aprovar lead: ' + error.message });
+    }
+});
+
+// POST - Rejeitar lead pendente
+app.post('/api/pending-prospects/:index/reject', (req, res) => {
+    try {
+        const index = parseInt(req.params.index);
+        const pendingProspects = readPendingProspects();
+
+        if (index < 0 || index >= pendingProspects.length) {
+            return res.status(404).json({ error: 'Lead pendente não encontrado' });
+        }
+
+        // Remover do pendentes
+        const rejected = pendingProspects.splice(index, 1)[0];
+        savePendingProspects(pendingProspects);
+
+        res.json({
+            success: true,
+            rejected: rejected,
+            remainingPending: pendingProspects.length
+        });
+
+    } catch (error) {
+        console.error('Erro ao rejeitar lead:', error);
+        res.status(500).json({ error: 'Erro ao rejeitar lead: ' + error.message });
+    }
+});
+
+// POST - Aprovar todos os leads pendentes
+app.post('/api/pending-prospects/approve-all', (req, res) => {
+    try {
+        const pendingProspects = readPendingProspects();
+        const prospects = readProspects();
+        const fields = readFieldsConfig();
+
+        let created = 0;
+        let updated = 0;
+
+        pendingProspects.forEach(lead => {
+            if (lead.isDuplicate && lead.existingId) {
+                // Atualizar existente
+                const existingIndex = prospects.findIndex(p => p.id === lead.existingId);
+                if (existingIndex !== -1) {
+                    prospects[existingIndex] = {
+                        ...prospects[existingIndex],
+                        ...lead.data,
+                        id: lead.existingId,
+                        atualizadoEm: new Date().toISOString()
+                    };
+                    updated++;
+                }
+            } else {
+                // Criar novo
+                const newProspect = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    status: lead.data.status || 'Não contatado ainda',
+                    criadoEm: new Date().toISOString()
+                };
+
+                fields.forEach(field => {
+                    newProspect[field.id] = lead.data[field.id] || '';
+                });
+
+                prospects.push(newProspect);
+                created++;
+            }
+        });
+
+        saveProspects(prospects);
+        savePendingProspects([]);
+
+        res.json({
+            success: true,
+            created,
+            updated,
+            total: created + updated
+        });
+
+    } catch (error) {
+        console.error('Erro ao aprovar todos:', error);
+        res.status(500).json({ error: 'Erro ao aprovar todos: ' + error.message });
+    }
+});
+
 // ============= ROTA DE IA - PREENCHIMENTO AUTOMÁTICO =============
 
 // POST - Processar texto com IA e extrair informações
